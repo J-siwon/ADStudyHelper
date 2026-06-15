@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADStudyHelper — 집중 대시보드</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="dashboard">
+    <!-- 헤더 -->
+    <header class="header">
+      <h1 class="app-title">ADStudyHelper</h1>
+      <div class="badges">
+        <span class="badge badge-state break" id="stateBadge">BREAK</span>
+        <span class="badge badge-connection" id="connectionBadge">확장 미연결</span>
+      </div>
+    </header>
+
+    <!-- 타이머 -->
+    <main class="main">
+      <div class="timer-label">오늘 집중 시간</div>
+      <div class="timer" id="timer">00:00:00</div>
+    </main>
+
+    <!-- 화이트리스트 에디터 -->
+    <section class="whitelist-section">
+      <h2 class="section-title">허용 앱 / URL 목록</h2>
+      <div class="whitelist-editor">
+        <div class="wl-col">
+          <label class="wl-label" for="appsTextarea">허용 앱</label>
+          <textarea class="wl-textarea" id="appsTextarea" placeholder="한 줄에 하나씩 입력&#10;예: Code"></textarea>
+        </div>
+        <div class="wl-col">
+          <label class="wl-label" for="urlsTextarea">허용 URL 패턴</label>
+          <textarea class="wl-textarea" id="urlsTextarea" placeholder="한 줄에 하나씩 입력&#10;예: github.com"></textarea>
+        </div>
+      </div>
+      <div class="save-row">
+        <button class="save-btn" id="saveBtn">저장</button>
+        <span class="save-status" id="saveStatus"></span>
+      </div>
+    </section>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
