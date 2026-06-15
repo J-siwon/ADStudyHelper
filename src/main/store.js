@@ -8,6 +8,20 @@ const DEFAULT_WHITELIST = {
   urlPatterns: ['docs.google.com', 'github.com', 'stackoverflow.com'],
 };
 
+// 기본 설정값 — 순수 상수이므로 단독 테스트 가능
+const DEFAULT_SETTINGS = {
+  cameraEnabled: false,       // 웹캠 시선 추적 on/off
+  cameraDeviceId: null,       // getUserMedia deviceId (null = 기본 장치)
+  ntfyTopic: '',              // ntfy.sh 토픽 (빈 문자열 = no-op)
+  awayThresholdMin: 10,       // 자리 비움 알림 임계값(분)
+  telegram: null,             // { botToken: string, chatId: string } | null
+};
+
+// partial 설정을 기본값에 얕게 병합 — 순수 함수이므로 단독 테스트 가능
+function mergeSettings(base, partial) {
+  return Object.assign({}, base, partial);
+}
+
 // 오늘 날짜 키(YYYY-MM-DD) 반환 — 순수 함수이므로 단독 테스트 가능
 function todayKey() {
   const d = new Date();
@@ -42,6 +56,21 @@ module.exports = {
     return store.get(`workSeconds.${todayKey()}`, 0);
   },
 
-  // 테스트에서 날짜 키 로직을 직접 검증하기 위해 노출
+  // 설정 전체 조회 (없는 키는 기본값으로 채워 반환)
+  getSettings() {
+    const saved = store.get('settings', {});
+    return mergeSettings(DEFAULT_SETTINGS, saved);
+  },
+
+  // 설정 부분 갱신 (기존 저장값에 partial 병합 후 저장)
+  setSettings(partial) {
+    const current = store.get('settings', {});
+    const next = mergeSettings(current, partial);
+    store.set('settings', next);
+  },
+
+  // 테스트에서 순수 로직을 직접 검증하기 위해 노출
   _todayKey: todayKey,
+  _DEFAULT_SETTINGS: DEFAULT_SETTINGS,
+  _mergeSettings: mergeSettings,
 };

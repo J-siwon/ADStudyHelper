@@ -1,7 +1,20 @@
 'use strict';
 
-const { describe, it, before, after } = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+
+// store.js의 순수 로직을 인라인으로 재현 (electron-store 없이 테스트)
+const DEFAULT_SETTINGS = {
+  cameraEnabled: false,
+  cameraDeviceId: null,
+  ntfyTopic: '',
+  awayThresholdMin: 10,
+  telegram: null,
+};
+
+function mergeSettings(base, partial) {
+  return Object.assign({}, base, partial);
+}
 
 // electron-store는 Electron 환경이 없으면 직접 require가 어려우므로
 // todayKey 순수 함수만 단독으로 추출해서 테스트한다.
@@ -81,5 +94,78 @@ describe('DEFAULT_WHITELIST 구조', () => {
     assert.ok(DEFAULT_WHITELIST.urlPatterns.includes('docs.google.com'));
     assert.ok(DEFAULT_WHITELIST.urlPatterns.includes('github.com'));
     assert.ok(DEFAULT_WHITELIST.urlPatterns.includes('stackoverflow.com'));
+  });
+});
+
+describe('DEFAULT_SETTINGS 기본값', () => {
+  it('cameraEnabled 기본값은 false', () => {
+    assert.equal(DEFAULT_SETTINGS.cameraEnabled, false);
+  });
+
+  it('cameraDeviceId 기본값은 null', () => {
+    assert.equal(DEFAULT_SETTINGS.cameraDeviceId, null);
+  });
+
+  it('ntfyTopic 기본값은 빈 문자열', () => {
+    assert.equal(DEFAULT_SETTINGS.ntfyTopic, '');
+  });
+
+  it('awayThresholdMin 기본값은 10', () => {
+    assert.equal(DEFAULT_SETTINGS.awayThresholdMin, 10);
+  });
+
+  it('telegram 기본값은 null', () => {
+    assert.equal(DEFAULT_SETTINGS.telegram, null);
+  });
+});
+
+describe('mergeSettings() 병합 로직', () => {
+  it('partial이 없으면 base를 그대로 반환한다', () => {
+    const result = mergeSettings(DEFAULT_SETTINGS, {});
+    assert.deepEqual(result, DEFAULT_SETTINGS);
+  });
+
+  it('원본 base 객체를 변경하지 않는다 (불변성)', () => {
+    const base = { ...DEFAULT_SETTINGS };
+    mergeSettings(base, { cameraEnabled: true });
+    assert.equal(base.cameraEnabled, false);
+  });
+
+  it('partial 키가 base를 덮어쓴다', () => {
+    const result = mergeSettings(DEFAULT_SETTINGS, { cameraEnabled: true });
+    assert.equal(result.cameraEnabled, true);
+  });
+
+  it('partial에 없는 기본 키는 보존된다', () => {
+    const result = mergeSettings(DEFAULT_SETTINGS, { ntfyTopic: 'my-topic' });
+    assert.equal(result.awayThresholdMin, 10);
+    assert.equal(result.cameraEnabled, false);
+  });
+
+  it('awayThresholdMin을 숫자로 갱신할 수 있다', () => {
+    const result = mergeSettings(DEFAULT_SETTINGS, { awayThresholdMin: 5 });
+    assert.equal(result.awayThresholdMin, 5);
+  });
+
+  it('telegram 객체를 설정할 수 있다', () => {
+    const tg = { botToken: 'tok', chatId: '123' };
+    const result = mergeSettings(DEFAULT_SETTINGS, { telegram: tg });
+    assert.deepEqual(result.telegram, tg);
+  });
+
+  it('여러 키를 동시에 병합할 수 있다', () => {
+    const partial = { cameraEnabled: true, ntfyTopic: 'focus', awayThresholdMin: 15 };
+    const result = mergeSettings(DEFAULT_SETTINGS, partial);
+    assert.equal(result.cameraEnabled, true);
+    assert.equal(result.ntfyTopic, 'focus');
+    assert.equal(result.awayThresholdMin, 15);
+  });
+
+  it('저장값 위에 partial을 병합하면 이전 저장값이 유지된다', () => {
+    // getSettings/setSettings 흐름 시뮬레이션
+    const saved = { cameraEnabled: true, ntfyTopic: 'old-topic' };
+    const merged = mergeSettings(saved, { ntfyTopic: 'new-topic' });
+    assert.equal(merged.cameraEnabled, true);   // 이전 저장값 유지
+    assert.equal(merged.ntfyTopic, 'new-topic'); // 새 값 반영
   });
 });
