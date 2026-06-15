@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, powerMonitor } = require('electron');
 const path = require('path');
 
 const tracker          = require('./tracker');
@@ -9,15 +9,23 @@ const { evaluate }     = require('./whitelist');
 const FocusState       = require('./focusState');
 const store            = require('./store');
 const characterWindow  = require('./characterWindow');
+const gazeManager      = require('./gazeManager');
+const { createAwayManager } = require('./awayManager');
+const notifier         = require('./notifier');
+const { startControlServer, stopControlServer, getManualBreak, getLanIp } = require('./controlServer');
 
 let mainWindow = null;
 let tray = null;
 let focusState = null;
+let awayManager = null;
 
 // 폴링 간 최신 창/URL 상태를 보관
 let lastWindowInfo     = { app: '', title: '', isChrome: false };
 let lastUrlInfo        = { url: '', tabActive: true };
 let extensionConnected = false;
+
+// 카메라가 BREAK를 강제하는지 여부 (gazeManager onUpdate 콜백으로 갱신)
+let gazeForceBreak = false;
 
 // 단일 인스턴스 락
 const gotLock = app.requestSingleInstanceLock();
@@ -38,9 +46,12 @@ function sendToRenderer(channel, data) {
   }
 }
 
+// whitelist 판정 + 카메라 BREAK 신호를 AND로 합산해 focusState에 적용
 function evaluateAndUpdate() {
   const config = store.getWhitelist();
-  const state = evaluate(
+  const settings = store.getSettings();
+
+  let state = evaluate(
     {
       app: lastWindowInfo.app,
       isChrome: lastWindowInfo.isChrome,
@@ -49,6 +60,12 @@ function evaluateAndUpdate() {
     },
     config
   );
+
+  // 카메라 추적이 켜져 있고 gaze가 BREAK를 강제하면 AND → BREAK
+  if (settings.cameraEnabled && gazeForceBreak) {
+    state = 'BREAK';
+  }
+
   focusState.setState(state);
 }
 
@@ -130,6 +147,34 @@ function startTracking() {
   );
 }
 
+function startGazeTracking() {
+  const settings = store.getSettings();
+  if (!settings.cameraEnabled) return;
+
+  gazeManager.startGaze({
+    cameraDeviceId: settings.cameraDeviceId || null,
+    onUpdate: (forceBreak) => {
+      gazeForceBreak = forceBreak;
+      evaluateAndUpdate();
+    },
+  });
+}
+
+function startAwayManager() {
+  awayManager = createAwayManager({
+    getSettings: () => store.getSettings(),
+    getIdleTimeSec: () => {
+      try { return powerMonitor.getSystemIdleTime(); }
+      catch (e) { return 0; }
+    },
+    getFacePresent: () => !gazeForceBreak,  // gazeForceBreak=true → facePresent=false
+    isManualBreak: () => getManualBreak(),
+    sendPhone: (message, settings) => notifier.sendPhone(message, settings),
+    pollIntervalMs: 5000,
+  });
+  awayManager.start();
+}
+
 // 화이트리스트 IPC 핸들러
 ipcMain.handle('wl:get', async () => {
   return store.getWhitelist();
@@ -140,11 +185,39 @@ ipcMain.handle('wl:set', async (_event, wl) => {
   return { ok: true };
 });
 
+// 설정 IPC 핸들러
+ipcMain.handle('settings:get', async () => {
+  return store.getSettings();
+});
+
+ipcMain.handle('settings:set', async (_event, partial) => {
+  store.setSettings(partial);
+
+  // cameraEnabled 변경 시 gaze 추적 on/off
+  const updated = store.getSettings();
+  if (updated.cameraEnabled) {
+    startGazeTracking();
+  } else {
+    gazeManager.stopGaze();
+    gazeForceBreak = false;
+  }
+
+  return { ok: true };
+});
+
+// 폰 제어 서버 LAN IP 조회
+ipcMain.handle('control:getLanIp', async () => {
+  return getLanIp();
+});
+
 app.whenReady().then(() => {
   createWindow();
   createTray();
   startFocusState();
   startTracking();
+  startGazeTracking();  // cameraEnabled=false면 no-op
+  startAwayManager();
+  startControlServer(47616);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -154,8 +227,11 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     if (focusState) focusState.stop();
+    if (awayManager) awayManager.stop();
     tracker.stopTracking();
     chromeBridge.stopBridge();
+    gazeManager.stopGaze();
+    stopControlServer();
     app.quit();
   }
 });

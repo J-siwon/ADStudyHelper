@@ -23,4 +23,19 @@ contextBridge.exposeInMainWorld('focusAPI', {
   setWhitelist(wl) {
     return ipcRenderer.invoke('wl:set', wl);
   },
+
+  // renderer -> main: 설정 조회 (Phase 2)
+  getSettings() {
+    return ipcRenderer.invoke('settings:get');
+  },
+
+  // renderer -> main: 설정 저장 (Phase 2, partial update)
+  setSettings(partial) {
+    return ipcRenderer.invoke('settings:set', partial);
+  },
+
+  // renderer -> main: 폰 제어 서버 LAN IP 조회
+  getLanIp() {
+    return ipcRenderer.invoke('control:getLanIp');
+  },
 });
