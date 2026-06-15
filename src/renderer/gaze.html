@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gaze Tracker (hidden)</title>
+  <style>
+    body { margin: 0; background: #000; overflow: hidden; }
+    #status { color: #aaa; font-family: monospace; font-size: 11px; padding: 4px; }
+    #videoEl { width: 320px; height: 240px; display: block; }
+    #calibration {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      font-family: sans-serif;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 10;
+    }
+    #calibration.active { display: flex; }
+    .cal-dot {
+      position: fixed;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #f9c74f;
+      border: 2px solid #fff;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+  <video id="videoEl" autoplay muted playsinline></video>
+  <div id="status">초기화 중...</div>
+  <div id="calibration">
+    <p>화면의 점을 순서대로 응시하며 클릭하세요 (캘리브레이션)</p>
+    <button id="skipCalBtn" style="padding:6px 18px;cursor:pointer;">건너뛰기</button>
+  </div>
+  <script src="gaze.js"></script>
+</body>
+</html>
