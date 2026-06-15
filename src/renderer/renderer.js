@@ -72,4 +72,107 @@ window.addEventListener('DOMContentLoaded', () => {
       saveStatusEl.textContent = '저장 실패';
     }
   });
+
+  // ── Phase 2 설정 패널 ──────────────────────────────────────────────
+
+  const cameraToggle       = document.getElementById('cameraToggle');
+  const cameraDeviceSelect = document.getElementById('cameraDeviceSelect');
+  const ntfyTopicInput     = document.getElementById('ntfyTopicInput');
+  const awayThresholdInput = document.getElementById('awayThresholdInput');
+  const controlUrlEl       = document.getElementById('controlUrl');
+  const settingsSaveBtn    = document.getElementById('settingsSaveBtn');
+  const settingsSaveStatus = document.getElementById('settingsSaveStatus');
+
+  // focusAPI에 getSettings/setSettings 가 있을 때만 활성화
+  // (worker-1이 ipcMain 'settings:get'/'settings:set' 핸들러를 연결함 — 주석 참고)
+  const hasSettingsAPI = !!(
+    window.focusAPI &&
+    typeof window.focusAPI.getSettings === 'function' &&
+    typeof window.focusAPI.setSettings === 'function'
+  );
+
+  // 카메라 장치 목록 채우기 (브라우저 API)
+  async function populateCameraDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter((d) => d.kind === 'videoinput');
+      // 기본 옵션은 HTML에 있으므로 추가 항목만 삽입
+      videoDevices.forEach((dev) => {
+        const opt = document.createElement('option');
+        opt.value = dev.deviceId;
+        opt.textContent = dev.label || `카메라 ${cameraDeviceSelect.options.length}`;
+        cameraDeviceSelect.appendChild(opt);
+      });
+    } catch {
+      // 권한 없으면 무시
+    }
+  }
+
+  // 폰 제어 주소 표시
+  // focusAPI.getControlUrl() 이 있으면 사용, 없으면 포트만 안내
+  async function loadControlUrl() {
+    if (window.focusAPI && typeof window.focusAPI.getControlUrl === 'function') {
+      try {
+        const url = await window.focusAPI.getControlUrl();
+        if (controlUrlEl) controlUrlEl.textContent = url || 'http://<LAN-IP>:47616';
+      } catch {
+        if (controlUrlEl) controlUrlEl.textContent = 'http://<LAN-IP>:47616';
+      }
+    } else {
+      if (controlUrlEl) controlUrlEl.textContent = 'http://<LAN-IP>:47616';
+    }
+  }
+
+  // 설정 초기 로드
+  async function loadSettings() {
+    if (!hasSettingsAPI) return;
+    try {
+      const s = await window.focusAPI.getSettings();
+      if (cameraToggle)       cameraToggle.checked         = !!s.cameraEnabled;
+      if (cameraDeviceSelect) cameraDeviceSelect.value     = s.cameraDeviceId || '';
+      if (ntfyTopicInput)     ntfyTopicInput.value         = s.ntfyTopic || '';
+      if (awayThresholdInput) awayThresholdInput.value     = s.awayThresholdMin ?? 10;
+    } catch {
+      // 로드 실패 시 기본값 유지
+    }
+  }
+
+  // 설정 저장
+  if (settingsSaveBtn) {
+    settingsSaveBtn.addEventListener('click', async () => {
+      if (!hasSettingsAPI) {
+        settingsSaveStatus.textContent = 'API 미연결 (main 측 핸들러 필요)';
+        setTimeout(() => { settingsSaveStatus.textContent = ''; }, 3000);
+        return;
+      }
+      const partial = {
+        cameraEnabled:    cameraToggle ? cameraToggle.checked : false,
+        cameraDeviceId:   cameraDeviceSelect ? (cameraDeviceSelect.value || null) : null,
+        ntfyTopic:        ntfyTopicInput ? ntfyTopicInput.value.trim() : '',
+        awayThresholdMin: awayThresholdInput ? Number(awayThresholdInput.value) || 10 : 10,
+      };
+      try {
+        await window.focusAPI.setSettings(partial);
+        settingsSaveStatus.textContent = '저장됨 ✓';
+        setTimeout(() => { settingsSaveStatus.textContent = ''; }, 2000);
+      } catch {
+        settingsSaveStatus.textContent = '저장 실패';
+      }
+    });
+  }
+
+  // 초기화
+  populateCameraDevices();
+  loadControlUrl();
+  loadSettings();
+
+  // NOTE (worker-1 연동): preload/index.js에 아래를 추가해야 함:
+  //   getSettings: () => ipcRenderer.invoke('settings:get'),
+  //   setSettings: (partial) => ipcRenderer.invoke('settings:set', partial),
+  //   getControlUrl: () => ipcRenderer.invoke('control:url'),
+  // main/index.js에서:
+  //   ipcMain.handle('settings:get', () => store.getSettings())
+  //   ipcMain.handle('settings:set', (_, partial) => store.setSettings(partial))
+  //   ipcMain.handle('control:url', () => `http://${lanIp}:47616`)
 });

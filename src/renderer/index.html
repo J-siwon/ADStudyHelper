@@ -42,6 +42,51 @@
         <span class="save-status" id="saveStatus"></span>
       </div>
     </section>
+
+    <!-- Phase 2 설정 패널 -->
+    <section class="settings-section">
+      <h2 class="section-title">고급 설정</h2>
+
+      <!-- 카메라 추적 -->
+      <div class="setting-row">
+        <label class="setting-label" for="cameraToggle">웹캠 시선 추적</label>
+        <label class="toggle">
+          <input type="checkbox" id="cameraToggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row" id="cameraDeviceRow">
+        <label class="setting-label" for="cameraDeviceSelect">카메라 장치</label>
+        <select class="setting-select" id="cameraDeviceSelect">
+          <option value="">기본 장치</option>
+        </select>
+      </div>
+
+      <!-- ntfy 토픽 -->
+      <div class="setting-row">
+        <label class="setting-label" for="ntfyTopicInput">ntfy 토픽</label>
+        <input class="setting-input" type="text" id="ntfyTopicInput"
+               placeholder="예: my-focus-alerts" />
+      </div>
+
+      <!-- 자리 비움 임계값 -->
+      <div class="setting-row">
+        <label class="setting-label" for="awayThresholdInput">자리 비움 알림 (분)</label>
+        <input class="setting-input setting-input--short" type="number"
+               id="awayThresholdInput" min="1" max="120" value="10" />
+      </div>
+
+      <!-- 폰 제어 주소 -->
+      <div class="setting-row">
+        <label class="setting-label">폰 제어 주소</label>
+        <span class="setting-value" id="controlUrl">—</span>
+      </div>
+
+      <div class="save-row">
+        <button class="save-btn" id="settingsSaveBtn">설정 저장</button>
+        <span class="save-status" id="settingsSaveStatus"></span>
+      </div>
+    </section>
   </div>
 
   <script src="renderer.js"></script>
