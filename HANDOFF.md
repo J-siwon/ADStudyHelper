@@ -1,20 +1,22 @@
 # ADStudyHelper — 세션 인수인계 (HANDOFF)
 
-> 다음 세션이 컨텍스트 없이 이어받을 수 있도록 작성. 최종 업데이트: 2026-06-16
+> 다음 세션이 컨텍스트 없이 이어받을 수 있도록 작성. 최종 업데이트: 2026-06-24
 
 ## 1. 한 줄 요약
-주의력 결핍(ADHD) 사용자를 위한 **집중력 향상 데스크톱 앱**. Electron + Node. MVP + Phase 2(선택기능) **완성·검증·GitHub push 완료**.
+주의력 결핍(ADHD) 사용자를 위한 **집중력 향상 데스크톱 앱**. Electron + Node. MVP + Phase 2(선택기능) + **폰 카메라 스트림** 완성. **실제 Electron 부팅 검증 완료**.
 
 ## 2. 위치 / 원격
-- 로컬: `C:\Users\tldnj\Desktop\ADStudyHelper`
+- 로컬: `C:\Users\tldnj\GitHub\ADStudyHelper`
 - GitHub: `https://github.com/J-siwon/ADStudyHelper` (브랜치 `main`)
-- 현재 동기화: local HEAD = remote = `c855856`, 총 18 커밋, 워킹트리 깨끗(`.omc/`만 untracked — 무시)
+- `.omc/`만 untracked — 커밋 대상 아님(무시)
 
 ## 3. 현재 상태 (DONE)
 - ✅ **MVP**: 활성앱/크롬URL 감지 → 화이트리스트 판정 → 연속 BREAK 10분 초과 시 캐릭터 팝업 → 일별 작업시간 누적/표시
 - ✅ **Phase 2**: 웹캠 시선추적, 자리비움 10분→폰 알림(ntfy), 폰 휴식체크 시 알림 억제, 설정 UI 확장
-- ✅ **검증**: verifier 독립 검증 PASS — `npm test` **61/61 통과**, 11개 main 모듈 require 정상, IPC 배선 확인, 전 커밋 Conventional Commits
-- ✅ 빌드: `npm install`(240 packages), `npm run check` 통과
+- ✅ **폰 카메라 스트림(F1 확장)**: 설정에서 카메라 소스 `내장 웹캠` / `폰 스트림(MJPEG/URL)` 선택 가능. 스트림 모드는 webgazer(getUserMedia) 비호환이라 **presence(존재 여부) 판정**만 사용.
+- ✅ **카메라 선택 동작 확정**: `cameraEnabled` OFF면 크롬 확장(화이트리스트)만으로 타이머 판정. ON이라도 **카메라/폰이 실제 연결 안 되면(`connected=false`) BREAK 강제하지 않고 크롬 확장으로 폴백**. 연결됨+얼굴이탈일 때만 BREAK.
+- ✅ **부팅 크래시 수정**: `get-windows` v9는 ESM 전용 → `tracker.js`가 `require()`로 불러 Electron(Node 18) 부팅 시 `ERR_REQUIRE_ESM` 크래시. **동적 `import()`로 지연 로드해 해결** — 이 프로젝트에서 앱이 처음으로 실제 부팅됨.
+- ✅ **검증**: `npm test` **82/82 통과**, `npm run check`(9개 main 모듈 require) exit 0, `npm start` 실부팅 무크래시(controlServer 정상 기동 로그 확인).
 
 ## 4. 기술 스택 / 구조
 - Electron + Node, **CommonJS**(`require`/`module.exports`) — `"type":"module"` 쓰지 말 것
@@ -56,19 +58,20 @@ npm test         # node --test, 61 테스트
 npm run check    # whitelist+focusState 로드 점검
 ```
 
-## 6. 남은 일 / 미검증 (TODO — 실기기 필요)
-- [ ] **실제 동작 확인**: `npm start`로 GUI 창·캐릭터 팝업 실제 표시 확인(무인 빌드라 GUI는 코드/문법까지만 검증됨)
+## 6. 남은 일 / 최종 확인 (사용자 실기기 — 1차는 코드/부팅 검증 완료)
+- [x] **앱 실제 부팅**: `npm start` 무크래시 부팅 확인 완료(get-windows ESM 수정 후). GUI 창·캐릭터 팝업의 **시각적** 표시는 사용자 눈으로 최종 확인 필요.
 - [ ] **크롬 확장 로드**: `chrome://extensions` → 개발자모드 → `chrome-extension/` 로드 후 URL 전달 확인
 - [ ] **폰 알림 실수신**: 폰에 ntfy 앱 설치 + 설정의 토픽 구독 → 자리비움 알림 도착 확인
-- [ ] **카메라 시선추적**: 카메라 권한 허용 + 정확도 확인(webgazer 기반이라 정밀도 제한 — 캘리브레이션 개선 여지)
-- [ ] **폰을 카메라로 사용**: 현재 미구현(수동 스트림 설정 안내만, PHASE2-PLAN.md 참고)
+- [ ] **내장 웹캠 시선추적**: 카메라 권한 허용 + 정확도 확인(webgazer 기반이라 정밀도 제한 — 캘리브레이션 개선 여지)
+- [ ] **폰 카메라 스트림**: 폰에 MJPEG 스트림 앱(예: IP Webcam) 설치 → 설정에서 `폰 스트림` 선택 + URL 입력 → presence 판정 동작 확인
 
-## 7. 개선 권장 (비차단, verifier 지적)
-- `npm run check`가 whitelist/focusState만 로드 → 전체 main 모듈로 확장 권장
+## 7. 개선 권장 (비차단)
+- ~~`npm run check`가 whitelist/focusState만 로드~~ → **완료**: 9개 main 모듈 전체 require로 확장.
 - `.omc/`가 .gitignore에 없음(사용자가 .gitignore 의도적으로 단순화함) → 필요 시 추가
+- 폰 스트림 모드의 시선 정밀도: 현재 presence(존재 여부)만. 정밀 시선은 내장 웹캠 모드 전용.
 
 ## 8. 다음 세션 빠른 시작
 1. 이 파일 + `CONTRACTS.md` + `README.md` 읽기
-2. `git -C C:\Users\tldnj\Desktop\ADStudyHelper status` 로 상태 확인
-3. 위 6번 TODO부터 진행(실기기 검증) 또는 신규 기능
-4. 커밋은 Conventional Commits, push 전 verifier 검증 권장
+2. `git -C C:\Users\tldnj\GitHub\ADStudyHelper status` 로 상태 확인
+3. 위 6번 실기기 최종 확인 진행 또는 신규 기능
+4. 커밋은 Conventional Commits
