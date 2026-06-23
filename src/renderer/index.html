@@ -55,11 +55,23 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="setting-row" id="cameraSourceRow">
+        <label class="setting-label" for="cameraSourceSelect">카메라 소스</label>
+        <select class="setting-select" id="cameraSourceSelect">
+          <option value="webcam">내장 웹캠</option>
+          <option value="stream">폰 스트림</option>
+        </select>
+      </div>
       <div class="setting-row" id="cameraDeviceRow">
         <label class="setting-label" for="cameraDeviceSelect">카메라 장치</label>
         <select class="setting-select" id="cameraDeviceSelect">
           <option value="">기본 장치</option>
         </select>
+      </div>
+      <div class="setting-row" id="cameraStreamRow">
+        <label class="setting-label" for="cameraStreamUrlInput">폰 스트림 URL</label>
+        <input class="setting-input" type="text" id="cameraStreamUrlInput"
+               placeholder="예: http://192.168.0.x:8080/video" />
       </div>
 
       <!-- ntfy 토픽 -->

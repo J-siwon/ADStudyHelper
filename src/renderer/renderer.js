@@ -75,13 +75,29 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ── Phase 2 설정 패널 ──────────────────────────────────────────────
 
-  const cameraToggle       = document.getElementById('cameraToggle');
-  const cameraDeviceSelect = document.getElementById('cameraDeviceSelect');
-  const ntfyTopicInput     = document.getElementById('ntfyTopicInput');
-  const awayThresholdInput = document.getElementById('awayThresholdInput');
-  const controlUrlEl       = document.getElementById('controlUrl');
-  const settingsSaveBtn    = document.getElementById('settingsSaveBtn');
-  const settingsSaveStatus = document.getElementById('settingsSaveStatus');
+  const cameraToggle         = document.getElementById('cameraToggle');
+  const cameraSourceSelect   = document.getElementById('cameraSourceSelect');
+  const cameraDeviceSelect   = document.getElementById('cameraDeviceSelect');
+  const cameraStreamUrlInput = document.getElementById('cameraStreamUrlInput');
+  const cameraDeviceRow      = document.getElementById('cameraDeviceRow');
+  const cameraStreamRow      = document.getElementById('cameraStreamRow');
+  const ntfyTopicInput       = document.getElementById('ntfyTopicInput');
+  const awayThresholdInput   = document.getElementById('awayThresholdInput');
+  const controlUrlEl         = document.getElementById('controlUrl');
+  const settingsSaveBtn      = document.getElementById('settingsSaveBtn');
+  const settingsSaveStatus   = document.getElementById('settingsSaveStatus');
+
+  // 카메라 소스에 따라 장치 선택 / 스트림 URL 행 표시 토글
+  function applyCameraSourceVisibility() {
+    const mode = cameraSourceSelect ? cameraSourceSelect.value : 'webcam';
+    const isStream = mode === 'stream';
+    if (cameraDeviceRow) cameraDeviceRow.style.display = isStream ? 'none' : '';
+    if (cameraStreamRow) cameraStreamRow.style.display = isStream ? '' : 'none';
+  }
+
+  if (cameraSourceSelect) {
+    cameraSourceSelect.addEventListener('change', applyCameraSourceVisibility);
+  }
 
   // focusAPI에 getSettings/setSettings 가 있을 때만 활성화
   // (worker-1이 ipcMain 'settings:get'/'settings:set' 핸들러를 연결함 — 주석 참고)
@@ -129,10 +145,13 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!hasSettingsAPI) return;
     try {
       const s = await window.focusAPI.getSettings();
-      if (cameraToggle)       cameraToggle.checked         = !!s.cameraEnabled;
-      if (cameraDeviceSelect) cameraDeviceSelect.value     = s.cameraDeviceId || '';
-      if (ntfyTopicInput)     ntfyTopicInput.value         = s.ntfyTopic || '';
-      if (awayThresholdInput) awayThresholdInput.value     = s.awayThresholdMin ?? 10;
+      if (cameraToggle)         cameraToggle.checked           = !!s.cameraEnabled;
+      if (cameraSourceSelect)   cameraSourceSelect.value       = s.cameraSource || 'webcam';
+      if (cameraDeviceSelect)   cameraDeviceSelect.value       = s.cameraDeviceId || '';
+      if (cameraStreamUrlInput) cameraStreamUrlInput.value     = s.cameraStreamUrl || '';
+      if (ntfyTopicInput)       ntfyTopicInput.value           = s.ntfyTopic || '';
+      if (awayThresholdInput)   awayThresholdInput.value       = s.awayThresholdMin ?? 10;
+      applyCameraSourceVisibility();
     } catch {
       // 로드 실패 시 기본값 유지
     }
@@ -148,7 +167,9 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       const partial = {
         cameraEnabled:    cameraToggle ? cameraToggle.checked : false,
+        cameraSource:     cameraSourceSelect ? cameraSourceSelect.value : 'webcam',
         cameraDeviceId:   cameraDeviceSelect ? (cameraDeviceSelect.value || null) : null,
+        cameraStreamUrl:  cameraStreamUrlInput ? cameraStreamUrlInput.value.trim() : '',
         ntfyTopic:        ntfyTopicInput ? ntfyTopicInput.value.trim() : '',
         awayThresholdMin: awayThresholdInput ? Number(awayThresholdInput.value) || 10 : 10,
       };
