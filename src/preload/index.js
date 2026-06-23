@@ -38,4 +38,9 @@ contextBridge.exposeInMainWorld('focusAPI', {
   getLanIp() {
     return ipcRenderer.invoke('control:getLanIp');
   },
+
+  // renderer -> main: 폰 제어 서버 접속 URL(http://<LAN-IP>:47616) 조회
+  getControlUrl() {
+    return ipcRenderer.invoke('control:url');
+  },
 });

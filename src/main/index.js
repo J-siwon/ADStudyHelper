@@ -153,6 +153,8 @@ function startGazeTracking() {
 
   gazeManager.startGaze({
     cameraDeviceId: settings.cameraDeviceId || null,
+    cameraSource: settings.cameraSource || 'webcam',
+    cameraStreamUrl: settings.cameraStreamUrl || '',
     onUpdate: (forceBreak) => {
       gazeForceBreak = forceBreak;
       evaluateAndUpdate();
@@ -208,6 +210,11 @@ ipcMain.handle('settings:set', async (_event, partial) => {
 // 폰 제어 서버 LAN IP 조회
 ipcMain.handle('control:getLanIp', async () => {
   return getLanIp();
+});
+
+// 폰 제어 서버 접속 URL 조회 (renderer loadControlUrl()가 사용)
+ipcMain.handle('control:url', async () => {
+  return `http://${getLanIp()}:47616`;
 });
 
 app.whenReady().then(() => {

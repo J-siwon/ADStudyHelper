@@ -7,6 +7,7 @@
     body { margin: 0; background: #000; overflow: hidden; }
     #status { color: #aaa; font-family: monospace; font-size: 11px; padding: 4px; }
     #videoEl { width: 320px; height: 240px; display: block; }
+    #streamEl { width: 320px; height: 240px; display: none; }
     #calibration {
       display: none;
       position: fixed; inset: 0;
@@ -33,6 +34,7 @@
 </head>
 <body>
   <video id="videoEl" autoplay muted playsinline></video>
+  <img id="streamEl" alt="phone camera stream" />
   <div id="status">초기화 중...</div>
   <div id="calibration">
     <p>화면의 점을 순서대로 응시하며 클릭하세요 (캘리브레이션)</p>

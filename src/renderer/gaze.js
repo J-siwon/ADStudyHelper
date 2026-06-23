@@ -6,11 +6,14 @@
 const REPORT_INTERVAL_MS = 1000; // 1초마다 main에 보고
 const STATUS_EL = document.getElementById('status');
 const VIDEO_EL = document.getElementById('videoEl');
+const STREAM_EL = document.getElementById('streamEl');
 
-let state = { facePresent: false, gazeOnScreen: false };
+let state = { facePresent: false, gazeOnScreen: false, connected: false };
 let deviceId = null;
 let stream = null;
 let reportTimer = null;
+let streamHealthy = false; // 폰 스트림(MJPEG) 수신 정상 여부
+let sourceMode = 'webcam'; // 'webcam' | 'stream' — connected 계산에 사용
 
 // webgazer 로드 여부
 let webgazerReady = false;
@@ -80,6 +83,35 @@ async function startWebgazer() {
   }
 }
 
+// 폰 스트림(MJPEG/URL) 소스: webgazer(getUserMedia) 비호환 → 존재 여부(presence)만 판정.
+// 스트림 로드 성공=facePresent=true, 실패/끊김=false. gaze 정밀 추적은 불가(presence=화면주시로 가정).
+function startStream(streamUrl) {
+  if (!STREAM_EL) {
+    setStatus('스트림 엘리먼트 없음');
+    return;
+  }
+  if (VIDEO_EL) VIDEO_EL.style.display = 'none';
+  STREAM_EL.style.display = 'block';
+
+  STREAM_EL.addEventListener('load', () => {
+    streamHealthy = true;
+    setStatus('폰 스트림 수신 중 (presence 모드)');
+  });
+  STREAM_EL.addEventListener('error', () => {
+    streamHealthy = false;
+    setStatus('폰 스트림 오류 — URL 확인');
+  });
+
+  STREAM_EL.src = streamUrl;
+
+  // 주기적으로 스트림 상태 → state 반영 (MJPEG는 트랙 개념이 없어 load/error + naturalWidth로 판정)
+  setInterval(() => {
+    const alive = streamHealthy && STREAM_EL.naturalWidth > 0;
+    state.facePresent = alive;
+    state.gazeOnScreen = alive; // presence 모드: 스트림 정상=화면 주시로 가정
+  }, REPORT_INTERVAL_MS);
+}
+
 // 폴백: 단순 얼굴 존재 감지 (비디오 트랙 활성 여부만 확인)
 function startFaceFallback() {
   setStatus('폴백 모드: 카메라 활성 여부만 감지');
@@ -145,10 +177,23 @@ function startCalibration() {
   showDot();
 }
 
+// 카메라/스트림이 실제로 연결되어 신호를 주는 중인지 판정.
+// connected=false면 main이 BREAK를 강제하지 않고 크롬 확장(화이트리스트)으로 폴백한다.
+function computeConnected() {
+  if (sourceMode === 'stream') {
+    return streamHealthy && !!STREAM_EL && STREAM_EL.naturalWidth > 0;
+  }
+  // webcam: getUserMedia 트랙이 살아있어야 연결로 간주
+  if (!stream) return false;
+  const track = stream.getVideoTracks()[0];
+  return !!(track && track.readyState === 'live');
+}
+
 // 주기적으로 main에 gaze 상태 보고
 function startReporting() {
   reportTimer = setInterval(() => {
     if (window.gazeAPI) {
+      state.connected = computeConnected();
       window.gazeAPI.sendUpdate({ ...state });
     }
   }, REPORT_INTERVAL_MS);
@@ -161,8 +206,20 @@ window.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  window.gazeAPI.onInit(async ({ cameraDeviceId }) => {
+  window.gazeAPI.onInit(async ({ cameraDeviceId, cameraSource, cameraStreamUrl }) => {
     deviceId = cameraDeviceId;
+
+    // 폰 스트림 모드: webgazer 대신 presence 판정만 사용
+    if (cameraSource === 'stream' && cameraStreamUrl) {
+      sourceMode = 'stream';
+      setStatus('폰 스트림 연결 중...');
+      startStream(cameraStreamUrl);
+      startReporting();
+      return;
+    }
+
+    // 내장 웹캠 모드 (기존 경로)
+    sourceMode = 'webcam';
     setStatus('카메라 시작 중...');
 
     const camOk = await startCamera(deviceId);
