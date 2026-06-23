@@ -66,3 +66,109 @@ describe('gaze 상태 전이 시나리오', () => {
     assert.equal(results[3], true);
   });
 });
+
+// 실제 gazeManager.js 모듈을 require해 카메라 소스 순수 로직을 검증
+// (gazeManager는 Electron API를 load 시 실행하지 않아 헤드리스 require 가능)
+const gazeManager = require('../src/main/gazeManager');
+
+describe('_isValidStreamUrl() — 스트림 URL 유효성', () => {
+  it('http URL은 유효', () => {
+    assert.equal(gazeManager._isValidStreamUrl('http://192.168.0.5:8080/video'), true);
+  });
+  it('https URL은 유효', () => {
+    assert.equal(gazeManager._isValidStreamUrl('https://cam.local/stream'), true);
+  });
+  it('앞뒤 공백은 무시하고 판정', () => {
+    assert.equal(gazeManager._isValidStreamUrl('  http://x/y  '), true);
+  });
+  it('빈 문자열은 무효', () => {
+    assert.equal(gazeManager._isValidStreamUrl(''), false);
+  });
+  it('http(s)가 아닌 스킴은 무효', () => {
+    assert.equal(gazeManager._isValidStreamUrl('ftp://x/y'), false);
+    assert.equal(gazeManager._isValidStreamUrl('192.168.0.5:8080'), false);
+  });
+  it('문자열이 아니면 무효', () => {
+    assert.equal(gazeManager._isValidStreamUrl(null), false);
+    assert.equal(gazeManager._isValidStreamUrl(undefined), false);
+    assert.equal(gazeManager._isValidStreamUrl(123), false);
+  });
+});
+
+describe('_pickCameraSource() — 소스 모드 결정', () => {
+  it('stream 소스 + 유효 URL → stream 모드', () => {
+    const r = gazeManager._pickCameraSource({
+      cameraSource: 'stream',
+      cameraStreamUrl: 'http://192.168.0.5:8080/video',
+    });
+    assert.equal(r.mode, 'stream');
+    assert.equal(r.streamUrl, 'http://192.168.0.5:8080/video');
+    assert.equal(r.deviceId, null);
+  });
+
+  it('stream 소스이지만 URL 무효 → webcam 폴백', () => {
+    const r = gazeManager._pickCameraSource({ cameraSource: 'stream', cameraStreamUrl: '' });
+    assert.equal(r.mode, 'webcam');
+  });
+
+  it('webcam 소스 → deviceId 전달', () => {
+    const r = gazeManager._pickCameraSource({ cameraSource: 'webcam', cameraDeviceId: 'cam-1' });
+    assert.equal(r.mode, 'webcam');
+    assert.equal(r.deviceId, 'cam-1');
+    assert.equal(r.streamUrl, '');
+  });
+
+  it('설정 없음/빈 객체 → webcam 기본', () => {
+    assert.equal(gazeManager._pickCameraSource({}).mode, 'webcam');
+    assert.equal(gazeManager._pickCameraSource(undefined).mode, 'webcam');
+  });
+
+  it('stream URL 앞뒤 공백은 trim 되어 반환', () => {
+    const r = gazeManager._pickCameraSource({
+      cameraSource: 'stream',
+      cameraStreamUrl: '  http://x/y  ',
+    });
+    assert.equal(r.streamUrl, 'http://x/y');
+  });
+});
+
+describe('_shouldForceBreak() — connected 폴백 (실모듈)', () => {
+  it('connected=false면 얼굴 없어도 BREAK 강제 안 함 (크롬 확장 폴백)', () => {
+    assert.equal(
+      gazeManager._shouldForceBreak({ facePresent: false, gazeOnScreen: false, connected: false }),
+      false
+    );
+  });
+
+  it('connected=true + 얼굴 이탈 → BREAK 강제 (자리비움)', () => {
+    assert.equal(
+      gazeManager._shouldForceBreak({ facePresent: false, gazeOnScreen: false, connected: true }),
+      true
+    );
+  });
+
+  it('connected=true + 얼굴 있고 화면 주시 → BREAK 강제 없음', () => {
+    assert.equal(
+      gazeManager._shouldForceBreak({ facePresent: true, gazeOnScreen: true, connected: true }),
+      false
+    );
+  });
+
+  it('connected=true + 화면 밖 응시 → BREAK 강제', () => {
+    assert.equal(
+      gazeManager._shouldForceBreak({ facePresent: true, gazeOnScreen: false, connected: true }),
+      true
+    );
+  });
+
+  it('connected 미지정(undefined)은 하위호환: 얼굴 기준 판정', () => {
+    assert.equal(
+      gazeManager._shouldForceBreak({ facePresent: false, gazeOnScreen: false }),
+      true
+    );
+    assert.equal(
+      gazeManager._shouldForceBreak({ facePresent: true, gazeOnScreen: true }),
+      false
+    );
+  });
+});

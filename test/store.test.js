@@ -6,7 +6,9 @@ const assert = require('node:assert/strict');
 // store.js의 순수 로직을 인라인으로 재현 (electron-store 없이 테스트)
 const DEFAULT_SETTINGS = {
   cameraEnabled: false,
+  cameraSource: 'webcam',
   cameraDeviceId: null,
+  cameraStreamUrl: '',
   ntfyTopic: '',
   awayThresholdMin: 10,
   telegram: null,
@@ -116,6 +118,38 @@ describe('DEFAULT_SETTINGS 기본값', () => {
 
   it('telegram 기본값은 null', () => {
     assert.equal(DEFAULT_SETTINGS.telegram, null);
+  });
+
+  it('cameraSource 기본값은 webcam', () => {
+    assert.equal(DEFAULT_SETTINGS.cameraSource, 'webcam');
+  });
+
+  it('cameraStreamUrl 기본값은 빈 문자열', () => {
+    assert.equal(DEFAULT_SETTINGS.cameraStreamUrl, '');
+  });
+});
+
+// 실제 store.js 모듈을 require해 _DEFAULT_SETTINGS 상수를 직접 검증
+// (electron-store가 헤드리스에서 로드 가능함을 전제 — npm run check로도 보장)
+describe('store._DEFAULT_SETTINGS (실모듈)', () => {
+  const store = require('../src/main/store');
+
+  it('cameraSource 기본값이 webcam', () => {
+    assert.equal(store._DEFAULT_SETTINGS.cameraSource, 'webcam');
+  });
+
+  it('cameraStreamUrl 기본값이 빈 문자열', () => {
+    assert.equal(store._DEFAULT_SETTINGS.cameraStreamUrl, '');
+  });
+
+  it('_mergeSettings로 스트림 설정을 병합할 수 있다', () => {
+    const merged = store._mergeSettings(store._DEFAULT_SETTINGS, {
+      cameraSource: 'stream',
+      cameraStreamUrl: 'http://192.168.0.5:8080/video',
+    });
+    assert.equal(merged.cameraSource, 'stream');
+    assert.equal(merged.cameraStreamUrl, 'http://192.168.0.5:8080/video');
+    assert.equal(merged.cameraEnabled, false); // 기존 키 보존
   });
 });
 
