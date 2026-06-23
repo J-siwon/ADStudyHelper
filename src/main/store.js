@@ -11,7 +11,9 @@ const DEFAULT_WHITELIST = {
 // 기본 설정값 — 순수 상수이므로 단독 테스트 가능
 const DEFAULT_SETTINGS = {
   cameraEnabled: false,       // 웹캠 시선 추적 on/off
-  cameraDeviceId: null,       // getUserMedia deviceId (null = 기본 장치)
+  cameraSource: 'webcam',     // 카메라 소스: 'webcam'(내장) | 'stream'(폰 MJPEG/스트림 URL)
+  cameraDeviceId: null,       // getUserMedia deviceId (null = 기본 장치, cameraSource='webcam'일 때)
+  cameraStreamUrl: '',        // 폰 스트림 URL (cameraSource='stream'일 때 사용, 빈 문자열 = 미설정)
   ntfyTopic: '',              // ntfy.sh 토픽 (빈 문자열 = no-op)
   awayThresholdMin: 10,       // 자리 비움 알림 임계값(분)
   telegram: null,             // { botToken: string, chatId: string } | null
