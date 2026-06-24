@@ -13,12 +13,47 @@ function formatTime(totalSeconds) {
 
 window.addEventListener('DOMContentLoaded', () => {
   const timerEl        = document.getElementById('timer');
+  const breakTimerEl   = document.getElementById('breakTimer');
   const stateBadgeEl   = document.getElementById('stateBadge');
   const connectionEl   = document.getElementById('connectionBadge');
+  const currentAppEl   = document.getElementById('currentApp');
   const appsTextarea   = document.getElementById('appsTextarea');
   const urlsTextarea   = document.getElementById('urlsTextarea');
+  const urlModeSelect  = document.getElementById('urlModeSelect');
+  const urlsLabel      = document.getElementById('urlsLabel');
+  const urlModeHint    = document.getElementById('urlModeHint');
+  const helpBtn        = document.getElementById('helpBtn');
   const saveBtn        = document.getElementById('saveBtn');
   const saveStatusEl   = document.getElementById('saveStatus');
+
+  // URL 판정 방식(allow/block)에 따라 라벨·안내 문구 갱신
+  function applyUrlModeUI() {
+    const mode = urlModeSelect ? urlModeSelect.value : 'allow';
+    if (mode === 'block') {
+      if (urlsLabel) urlsLabel.textContent = '제한 URL 패턴 (방문 시 휴식)';
+      if (urlModeHint) urlModeHint.textContent =
+        '제한 목록: 아래 URL을 방문하면 휴식(BREAK)으로 처리하고, 그 외 모든 사이트는 집중(WORK)으로 인정합니다. 확장 미연결이면 집중으로 간주합니다.';
+      if (urlsTextarea) urlsTextarea.placeholder = '한 줄에 하나씩 입력\n예: youtube.com';
+    } else {
+      if (urlsLabel) urlsLabel.textContent = '허용 URL 패턴 (방문 시 집중)';
+      if (urlModeHint) urlModeHint.textContent =
+        '허용 목록: 아래 URL만 집중(WORK)으로 인정하고, 그 외 사이트는 휴식(BREAK)으로 처리합니다. 확장 미연결이면 휴식으로 간주합니다.';
+      if (urlsTextarea) urlsTextarea.placeholder = '한 줄에 하나씩 입력\n예: github.com';
+    }
+  }
+
+  if (urlModeSelect) {
+    urlModeSelect.addEventListener('change', applyUrlModeUI);
+  }
+
+  // 도움말 창 열기
+  if (helpBtn) {
+    helpBtn.addEventListener('click', () => {
+      if (window.focusAPI && typeof window.focusAPI.openHelp === 'function') {
+        window.focusAPI.openHelp();
+      }
+    });
+  }
 
   if (!window.focusAPI) {
     // preload 미연결 환경(개발용 브라우저 직접 열기 등)에서 경고 표시
@@ -27,9 +62,9 @@ window.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // 1초마다 tick: { state, workSeconds }
-  window.focusAPI.onTick(({ state, workSeconds }) => {
-    // 타이머 갱신
+  // 1초마다 tick: { state, workSeconds, breakSeconds }
+  window.focusAPI.onTick(({ state, workSeconds, breakSeconds }) => {
+    // 오늘 집중 시간 (자정에 자동 0)
     timerEl.textContent = formatTime(workSeconds);
 
     // 상태 배지 갱신
@@ -37,6 +72,18 @@ window.addEventListener('DOMContentLoaded', () => {
     stateBadgeEl.textContent = isWork ? 'WORK' : 'BREAK';
     stateBadgeEl.classList.toggle('work', isWork);
     stateBadgeEl.classList.toggle('break', !isWork);
+
+    // 현재 쉬는 시간 — BREAK 상태에서만 표시, WORK 복귀 시 숨김
+    if (breakTimerEl) {
+      const bs = breakSeconds || 0;
+      if (!isWork && bs > 0) {
+        breakTimerEl.textContent = `쉬는 시간 ${formatTime(bs)}`;
+        breakTimerEl.style.display = '';
+      } else {
+        breakTimerEl.textContent = '';
+        breakTimerEl.style.display = 'none';
+      }
+    }
   });
 
   // 확장 연결 상태
@@ -45,12 +92,31 @@ window.addEventListener('DOMContentLoaded', () => {
     connectionEl.classList.toggle('connected', connected);
   });
 
+  // 현재 활성 앱/URL 표시 — 사용자가 어떤 이름을 화이트리스트에 넣어야 할지 알 수 있게
+  if (currentAppEl && typeof window.focusAPI.onStatus === 'function') {
+    window.focusAPI.onStatus((s) => {
+      if (!s) return;
+      let label;
+      if (s.isChrome) {
+        if (!s.extensionConnected) label = 'Chrome (확장 미연결)';
+        else label = `Chrome — ${s.url || 'URL 없음'}`;
+      } else {
+        label = s.app || '(알 수 없음)';
+      }
+      const mark = s.state === 'WORK' ? '집중' : '휴식';
+      currentAppEl.textContent = `현재 활성: ${label} → ${mark}`;
+    });
+  }
+
   // 화이트리스트 초기 로드
   window.focusAPI.getWhitelist().then((wl) => {
     appsTextarea.value = (wl.apps || []).join('\n');
     urlsTextarea.value = (wl.urlPatterns || []).join('\n');
+    if (urlModeSelect) urlModeSelect.value = wl.urlMode === 'block' ? 'block' : 'allow';
+    applyUrlModeUI();
   }).catch(() => {
     // 로드 실패 시 무시 (빈 상태 유지)
+    applyUrlModeUI();
   });
 
   // 화이트리스트 저장
@@ -63,9 +129,10 @@ window.addEventListener('DOMContentLoaded', () => {
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
+    const urlMode = urlModeSelect && urlModeSelect.value === 'block' ? 'block' : 'allow';
 
     try {
-      await window.focusAPI.setWhitelist({ apps, urlPatterns });
+      await window.focusAPI.setWhitelist({ apps, urlPatterns, urlMode });
       saveStatusEl.textContent = '저장됨 ✓';
       setTimeout(() => { saveStatusEl.textContent = ''; }, 2000);
     } catch {

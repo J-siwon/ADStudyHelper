@@ -3,9 +3,12 @@
 const Store = require('electron-store');
 
 // 기본 시드 화이트리스트
+// 앱 키워드는 get-windows의 owner.name(친근한 표시 이름)에 "부분 포함"으로 매칭된다.
+//   'Code' ⊂ "Visual Studio Code", 'Terminal' ⊂ "Windows Terminal Host", 'PowerShell' ⊂ "Windows PowerShell"
 const DEFAULT_WHITELIST = {
-  apps: ['Code', 'WindowsTerminal', 'cmd'],
+  apps: ['Code', 'Terminal', 'PowerShell', 'cmd'],
   urlPatterns: ['docs.google.com', 'github.com', 'stackoverflow.com'],
+  urlMode: 'allow', // 'allow'(허용 목록) | 'block'(제한 목록)
 };
 
 // 기본 설정값 — 순수 상수이므로 단독 테스트 가능

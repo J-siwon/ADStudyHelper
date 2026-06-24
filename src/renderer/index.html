@@ -15,6 +15,7 @@
       <div class="badges">
         <span class="badge badge-state break" id="stateBadge">BREAK</span>
         <span class="badge badge-connection" id="connectionBadge">확장 미연결</span>
+        <button class="help-btn" id="helpBtn" title="사용 방법">❓ 도움말</button>
       </div>
     </header>
 
@@ -22,18 +23,31 @@
     <main class="main">
       <div class="timer-label">오늘 집중 시간</div>
       <div class="timer" id="timer">00:00:00</div>
+      <div class="break-timer" id="breakTimer" style="display:none"></div>
+      <div class="current-app" id="currentApp">현재 활성: —</div>
     </main>
 
     <!-- 화이트리스트 에디터 -->
     <section class="whitelist-section">
-      <h2 class="section-title">허용 앱 / URL 목록</h2>
+      <h2 class="section-title">집중 판정 목록</h2>
+
+      <!-- URL 판정 방식 -->
+      <div class="setting-row">
+        <label class="setting-label" for="urlModeSelect">URL 판정 방식</label>
+        <select class="setting-select" id="urlModeSelect">
+          <option value="allow">허용 목록 (목록만 집중 인정)</option>
+          <option value="block">제한 목록 (목록만 휴식 처리)</option>
+        </select>
+      </div>
+      <p class="wl-hint" id="urlModeHint"></p>
+
       <div class="whitelist-editor">
         <div class="wl-col">
-          <label class="wl-label" for="appsTextarea">허용 앱</label>
+          <label class="wl-label" for="appsTextarea">허용 앱 (항상 집중 인정)</label>
           <textarea class="wl-textarea" id="appsTextarea" placeholder="한 줄에 하나씩 입력&#10;예: Code"></textarea>
         </div>
         <div class="wl-col">
-          <label class="wl-label" for="urlsTextarea">허용 URL 패턴</label>
+          <label class="wl-label" for="urlsTextarea" id="urlsLabel">허용 URL 패턴</label>
           <textarea class="wl-textarea" id="urlsTextarea" placeholder="한 줄에 하나씩 입력&#10;예: github.com"></textarea>
         </div>
       </div>

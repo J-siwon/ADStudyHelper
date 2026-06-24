@@ -14,6 +14,11 @@ contextBridge.exposeInMainWorld('focusAPI', {
     ipcRenderer.on('connection', (_event, connected) => cb(connected));
   },
 
+  // main -> renderer: { app, isChrome, url, extensionConnected, state } (현재 활성 컨텍스트)
+  onStatus(cb) {
+    ipcRenderer.on('status', (_event, data) => cb(data));
+  },
+
   // renderer -> main: 화이트리스트 조회
   getWhitelist() {
     return ipcRenderer.invoke('wl:get');
@@ -42,5 +47,10 @@ contextBridge.exposeInMainWorld('focusAPI', {
   // renderer -> main: 폰 제어 서버 접속 URL(http://<LAN-IP>:47616) 조회
   getControlUrl() {
     return ipcRenderer.invoke('control:url');
+  },
+
+  // renderer -> main: 도움말 창 열기
+  openHelp() {
+    return ipcRenderer.invoke('help:open');
   },
 });

@@ -15,6 +15,7 @@ const notifier         = require('./notifier');
 const { startControlServer, stopControlServer, getManualBreak, getLanIp } = require('./controlServer');
 
 let mainWindow = null;
+let helpWindow = null;
 let tray = null;
 let focusState = null;
 let awayManager = null;
@@ -67,6 +68,15 @@ function evaluateAndUpdate() {
   }
 
   focusState.setState(state);
+
+  // 현재 무엇을 보고 어떻게 판정했는지 대시보드에 표시 (사용자가 화이트리스트에 추가할 이름 확인용)
+  sendToRenderer('status', {
+    app: lastWindowInfo.app,
+    isChrome: lastWindowInfo.isChrome,
+    url: lastUrlInfo.url,
+    extensionConnected,
+    state,
+  });
 }
 
 function createWindow() {
@@ -84,6 +94,34 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+function createHelpWindow() {
+  // 이미 열려 있으면 포커스만
+  if (helpWindow && !helpWindow.isDestroyed()) {
+    if (helpWindow.isMinimized()) helpWindow.restore();
+    helpWindow.focus();
+    return;
+  }
+
+  helpWindow = new BrowserWindow({
+    width: 720,
+    height: 760,
+    title: 'ADStudyHelper — 사용 방법',
+    parent: mainWindow || undefined,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // 메뉴바 숨김 (도움말 창은 콘텐츠만)
+  helpWindow.setMenuBarVisibility(false);
+  helpWindow.loadFile(path.join(__dirname, '../renderer/help.html'));
+
+  helpWindow.on('closed', () => {
+    helpWindow = null;
   });
 }
 
@@ -112,11 +150,18 @@ function startFocusState() {
   });
 
   // 1초마다 tick → WORK면 누적, 렌더러로 전송
-  focusState.on('tick', ({ state, workSeconds }) => {
+  focusState.on('tick', ({ state, breakSeconds }) => {
     if (state === 'WORK') {
       store.addWorkSeconds(1);
     }
-    sendToRenderer('tick', { state, workSeconds });
+    // 표시용 집중 시간은 store의 "오늘" 누적값을 쓴다.
+    // 날짜가 바뀌면 store 키(YYYY-MM-DD)가 바뀌어 자동으로 0부터 시작하고(하루 단위 초기화),
+    // 앱을 재시작해도 그날 누적은 유지된다. breakSeconds는 현재 연속 휴식 시간(WORK 복귀 시 0).
+    sendToRenderer('tick', {
+      state,
+      workSeconds: store.getTodayWorkSeconds(),
+      breakSeconds,
+    });
   });
 
   focusState.start();
@@ -204,6 +249,12 @@ ipcMain.handle('settings:set', async (_event, partial) => {
     gazeForceBreak = false;
   }
 
+  return { ok: true };
+});
+
+// 도움말 창 열기
+ipcMain.handle('help:open', async () => {
+  createHelpWindow();
   return { ok: true };
 });
 

@@ -96,6 +96,33 @@ html, body {
   color: var(--work-color);
 }
 
+/* 도움말 버튼 */
+.help-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.help-btn:hover {
+  background: rgba(124, 131, 253, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 판정 방식 안내 문구 */
+.wl-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-top: -4px;
+}
+
 /* 타이머 */
 .main {
   display: flex;
@@ -113,6 +140,25 @@ html, body {
   color: var(--text-dim);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.break-timer {
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: var(--break-color);
+  text-align: center;
+}
+
+.current-app {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+  word-break: break-all;
+  max-width: 90%;
 }
 
 .timer {

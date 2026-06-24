@@ -72,6 +72,16 @@ describe('FocusState — tick 타이머', () => {
     assert.equal(tick.workSeconds, 1);
   });
 
+  it('BREAK 상태에서 tick은 breakSeconds를 실어 보낸다', async () => {
+    const fs = new FocusState({ breakThresholdSec: 600 });
+    fs.setState('BREAK');
+    fs.start();
+    const tick = await waitForEvent(fs, 'tick');
+    fs.stop();
+    assert.equal(tick.state, 'BREAK');
+    assert.equal(tick.breakSeconds, 1);
+  });
+
   it('BREAK 임계값 초과 시 breakAlert 1회 발생', async () => {
     const fs = new FocusState({ breakThresholdSec: 2 });
     fs.setState('BREAK');
