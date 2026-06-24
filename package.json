@@ -3,17 +3,48 @@
   "version": "1.0.0",
   "description": "ADHD 사용자를 위한 집중력 향상 데스크톱 앱",
   "main": "src/main/index.js",
+  "author": "J-siwon",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "check": "node -e \"['whitelist','focusState','store','notifier','awayManager','controlServer','gazeManager','tracker','chromeBridge'].forEach(m=>require('./src/main/'+m+'.js'))\""
+    "check": "node -e \"['whitelist','focusState','store','notifier','awayManager','controlServer','gazeManager','tracker','chromeBridge'].forEach(m=>require('./src/main/'+m+'.js'))\"",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.jsiwon.adstudyhelper",
+    "productName": "ADStudyHelper",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "!**/*.test.js"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/get-windows/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "ADStudyHelper-${version}-portable.exe"
+    }
   },
   "devDependencies": {
-    "electron": "^28.0.0"
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
   },
   "dependencies": {
+    "electron-store": "^8.2.0",
     "get-windows": "^9.0.0",
-    "ws": "^8.16.0",
-    "electron-store": "^8.2.0"
+    "ws": "^8.16.0"
   }
 }
