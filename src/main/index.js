@@ -1,7 +1,44 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, powerMonitor } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, powerMonitor, protocol } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+// MediaPipe(wasm/모델) 오프라인 로딩용 커스텀 프로토콜.
+// file:// 페이지에서는 fetch가 막혀 MediaPipe가 wasm/모델을 못 불러오므로,
+// vendor/mediapipe 디렉터리를 mp://app/... 로 서빙한다. (반드시 app ready 전에 등록)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'mp', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true } },
+]);
+
+const MP_VENDOR_DIR = path.join(__dirname, '../renderer/vendor/mediapipe');
+const MP_CONTENT_TYPES = {
+  '.wasm': 'application/wasm',
+  '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
+  '.task': 'application/octet-stream',
+  '.data': 'application/octet-stream',
+};
+
+function registerMpProtocol() {
+  protocol.handle('mp', async (request) => {
+    try {
+      const u = new URL(request.url);                 // mp://app/<rel>
+      const rel = decodeURIComponent(u.pathname).replace(/^\/+/, '');
+      const filePath = path.join(MP_VENDOR_DIR, rel);
+      if (!filePath.startsWith(MP_VENDOR_DIR)) {
+        return new Response('forbidden', { status: 403 });
+      }
+      const data = await fs.promises.readFile(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+      return new Response(data, {
+        headers: { 'content-type': MP_CONTENT_TYPES[ext] || 'application/octet-stream' },
+      });
+    } catch (e) {
+      return new Response('not found: ' + e.message, { status: 404 });
+    }
+  });
+}
 
 const tracker          = require('./tracker');
 const chromeBridge     = require('./chromeBridge');
@@ -99,8 +136,9 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    // 대시보드를 닫으면 항상 위 펫 창도 닫아 window-all-closed가 발생하도록(앱 종료)
+    // 대시보드를 닫으면 보조 창(펫·카메라 미리보기)도 닫아 window-all-closed가 발생하도록(앱 종료)
     petWindow.hidePet();
+    gazeManager.stopGaze();
   });
 }
 
@@ -290,6 +328,7 @@ ipcMain.handle('control:url', async () => {
 });
 
 app.whenReady().then(() => {
+  registerMpProtocol();   // MediaPipe 에셋 서빙
   createWindow();
   createTray();
   startFocusState();

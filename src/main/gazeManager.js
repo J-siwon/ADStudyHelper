@@ -48,15 +48,20 @@ function startGaze({ cameraDeviceId, cameraSource, cameraStreamUrl, onUpdate }) 
   const source = pickCameraSource({ cameraSource, cameraStreamUrl, cameraDeviceId });
 
   gazeWin = new BrowserWindow({
-    width: 640,
-    height: 480,
-    show: false,           // 숨김 창
+    width: 340,
+    height: 300,
+    show: true,            // 카메라 미리보기 창 (얼굴 인식 상태 확인용)
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: false,
+    title: '카메라 미리보기',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, '../preload/gaze.js'),
     },
   });
+  try { gazeWin.setMenuBarVisibility(false); } catch (e) { /* noop */ }
 
   gazeWin.loadFile(path.join(__dirname, '../renderer/gaze.html'));
 

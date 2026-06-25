@@ -2,44 +2,50 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>Gaze Tracker (hidden)</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' mp:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https:; media-src 'self' blob: mediastream:; connect-src 'self' mp: blob: data:; worker-src 'self' blob:" />
+  <title>카메라 미리보기</title>
   <style>
-    body { margin: 0; background: #000; overflow: hidden; }
-    #status { color: #aaa; font-family: monospace; font-size: 11px; padding: 4px; }
-    #videoEl { width: 320px; height: 240px; display: block; }
-    #streamEl { width: 320px; height: 240px; display: none; }
-    #calibration {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.85);
-      color: #fff;
-      font-family: sans-serif;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 16px;
-      z-index: 10;
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #1a1d2e; overflow: hidden;
+      font-family: 'Segoe UI', 'Noto Sans KR', sans-serif; color: #e2e5f0;
     }
-    #calibration.active { display: flex; }
-    .cal-dot {
-      position: fixed;
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      background: #f9c74f;
-      border: 2px solid #fff;
-      cursor: pointer;
-      transform: translate(-50%, -50%);
+    .preview {
+      position: relative; width: 320px; height: 240px; margin: 6px auto 0;
+      background: #000; border-radius: 8px; overflow: hidden;
     }
+    #videoEl, #streamEl, #overlay {
+      position: absolute; inset: 0; width: 320px; height: 240px;
+    }
+    #videoEl { object-fit: cover; transform: scaleX(-1); }   /* 거울 모드 */
+    #streamEl { object-fit: cover; display: none; }
+    #overlay { transform: scaleX(-1); pointer-events: none; }
+    #status {
+      font-size: 12px; padding: 6px 8px; text-align: center; color: #8a8fbb;
+    }
+    #badge {
+      display: inline-block; margin-top: 2px; padding: 2px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; background: #232639; border: 1px solid #2e3150; color: #8a8fbb;
+    }
+    #badge.ok { background: rgba(67,233,123,0.14); border-color: #43e97b; color: #43e97b; }
+    #badge.off { background: rgba(247,151,30,0.14); border-color: #f7971e; color: #f7971e; }
+    #calibration { display: none; }
   </style>
 </head>
 <body>
-  <video id="videoEl" autoplay muted playsinline></video>
-  <img id="streamEl" alt="phone camera stream" />
-  <div id="status">초기화 중...</div>
-  <div id="calibration">
-    <p>화면의 점을 순서대로 응시하며 클릭하세요 (캘리브레이션)</p>
-    <button id="skipCalBtn" style="padding:6px 18px;cursor:pointer;">건너뛰기</button>
+  <div class="preview">
+    <video id="videoEl" autoplay muted playsinline></video>
+    <img id="streamEl" alt="phone camera stream" />
+    <canvas id="overlay" width="320" height="240"></canvas>
   </div>
-  <script src="gaze.js"></script>
+  <div id="status">초기화 중...</div>
+  <div style="text-align:center;"><span id="badge">대기</span></div>
+  <!-- 캘리브레이션은 MediaPipe에서 불필요(미사용) -->
+  <div id="calibration"><button id="skipCalBtn"></button></div>
+
+  <!-- 순수 시선 계산 로직 (window.gazeMath) -->
+  <script src="../shared/gazeMath.js"></script>
+  <!-- MediaPipe 기반 추적 (ESM) -->
+  <script type="module" src="gaze.js"></script>
 </body>
 </html>
