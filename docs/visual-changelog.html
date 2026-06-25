@@ -108,6 +108,16 @@
   .cam .cb{font-size:10px;margin-top:6px;text-align:center;padding:2px 8px;border-radius:999px;display:inline-block}
   .cam .cb.ok{background:rgba(67,233,123,.14);color:var(--work);border:1px solid var(--work)}
 
+  /* 구버전 고양이 팝업 재현 */
+  .catpopup{position:relative;width:280px;height:150px;
+    background:linear-gradient(135deg,#fff9e6 0%,#ffeaa7 100%);
+    border:2px solid #f9c74f;border-radius:18px;box-shadow:0 8px 26px rgba(0,0,0,.28);
+    display:flex;flex-direction:row;align-items:center;padding:14px 18px;gap:12px}
+  .cp-close{position:absolute;top:7px;right:9px;background:none;border:none;font-size:13px;color:#888;line-height:1;cursor:default}
+  .cp-char{flex-shrink:0}
+  .cp-char svg{display:block;filter:drop-shadow(0 2px 6px rgba(249,199,79,.4))}
+  .cp-msg{font-size:14px;color:#333;line-height:1.5;word-break:keep-all}
+
   .commits{margin-top:34px}
   .commits h2{font-size:18px;margin-bottom:10px}
   .ctl{border-left:2px solid var(--border);padding-left:16px}
@@ -130,19 +140,29 @@
     <p class="why">구버전: 휴식 10분 초과 시에만 잠깐 뜨는 고양이 팝업. 현재: 화면 구석에 <b>상시 떠다니는 클로드 펫</b>이 내 집중상태 × Claude 작업여부를 5가지 자세로 표현(아래는 실제 애니메이션).</p>
     <div class="ba">
       <div class="pane b">
-        <div class="cap">BEFORE · 고양이 알림 팝업</div>
+        <div class="cap">BEFORE · 고양이 알림 팝업 (전체)</div>
         <div class="stagebox">
-          <svg viewBox="0 0 100 100" width="96" height="96" aria-label="고양이">
-            <ellipse cx="50" cy="72" rx="28" ry="22" fill="#f9c74f"/><circle cx="50" cy="45" r="26" fill="#f9c74f"/>
-            <polygon points="26,28 20,10 38,22" fill="#f9c74f"/><polygon points="28,26 23,14 36,23" fill="#ffb3c6"/>
-            <polygon points="74,28 80,10 62,22" fill="#f9c74f"/><polygon points="72,26 77,14 64,23" fill="#ffb3c6"/>
-            <ellipse cx="41" cy="43" rx="5" ry="6" fill="#2d2d2d"/><ellipse cx="59" cy="43" rx="5" ry="6" fill="#2d2d2d"/>
-            <circle cx="43" cy="41" r="1.5" fill="#fff"/><circle cx="61" cy="41" r="1.5" fill="#fff"/>
-            <ellipse cx="50" cy="52" rx="3" ry="2" fill="#ff8fab"/>
-            <path d="M44,56 Q50,61 56,56" stroke="#2d2d2d" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          </svg>
+          <div class="catpopup">
+            <button class="cp-close">✕</button>
+            <div class="cp-char">
+              <svg viewBox="0 0 100 100" width="68" height="68" aria-label="고양이">
+                <ellipse cx="50" cy="72" rx="28" ry="22" fill="#f9c74f"/><circle cx="50" cy="45" r="26" fill="#f9c74f"/>
+                <polygon points="26,28 20,10 38,22" fill="#f9c74f"/><polygon points="28,26 23,14 36,23" fill="#ffb3c6"/>
+                <polygon points="74,28 80,10 62,22" fill="#f9c74f"/><polygon points="72,26 77,14 64,23" fill="#ffb3c6"/>
+                <ellipse cx="41" cy="43" rx="5" ry="6" fill="#2d2d2d"/><ellipse cx="59" cy="43" rx="5" ry="6" fill="#2d2d2d"/>
+                <circle cx="43" cy="41" r="1.5" fill="#fff"/><circle cx="61" cy="41" r="1.5" fill="#fff"/>
+                <ellipse cx="50" cy="52" rx="3" ry="2" fill="#ff8fab"/>
+                <path d="M44,56 Q50,61 56,56" stroke="#2d2d2d" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                <line x1="20" y1="50" x2="40" y2="53" stroke="#2d2d2d" stroke-width="1" opacity=".6"/>
+                <line x1="20" y1="55" x2="40" y2="55" stroke="#2d2d2d" stroke-width="1" opacity=".6"/>
+                <line x1="80" y1="50" x2="60" y2="53" stroke="#2d2d2d" stroke-width="1" opacity=".6"/>
+                <line x1="80" y1="55" x2="60" y2="55" stroke="#2d2d2d" stroke-width="1" opacity=".6"/>
+              </svg>
+            </div>
+            <div class="cp-msg">다시 집중! 🐱</div>
+          </div>
         </div>
-        <div class="note">알림 때만 1회 등장 · 상태 표현 없음</div>
+        <div class="note">frameless·반투명·always-on-top 팝업 · 알림 때만 1회 등장</div>
       </div>
       <div class="pane a">
         <div class="cap">AFTER · 클로드 펫 (5가지 자세 순환)</div>
