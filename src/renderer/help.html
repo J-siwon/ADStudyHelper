@@ -70,7 +70,15 @@
       <li><strong>BREAK</strong>가 연속 10분(기본값)을 넘기면 <strong>클로드 펫</strong>이 방방 뛰며 "다시 집중!"이라고 알려줍니다.</li>
     </ul>
     <div class="note">
-      <strong>🔶 클로드 펫</strong> — 화면 구석에 떠 있는 작은 펫이 현재 상태를 보여줍니다: 집중 중이면 <strong>공부하는 모습</strong>, 휴식 중이면 <strong>자는 모습</strong>, 쉬는 시간이 제한을 넘기면 <strong>방방 뛰며</strong> 알립니다. 드래그로 위치를 옮길 수 있고, 고급 설정에서 끌 수 있습니다.
+      <strong>🔶 클로드 펫</strong> — 화면 구석에 떠 있는 작은 펫이 내 집중 상태와 <strong>Claude Code 작업 상태</strong>를 함께 보여줍니다:
+      <ul style="margin:6px 0 0 18px;">
+        <li>집중 중 + Claude 작업 중 → <strong>코딩하는 모습</strong> 💻</li>
+        <li>집중 중 + Claude 대기 → <strong>공부하는 모습</strong> 📖</li>
+        <li>휴식 중 + Claude 작업 중 → <strong>컴퓨터 앞에서 자는 모습</strong> 😴💻</li>
+        <li>휴식 중 + Claude 대기 → <strong>자는 모습</strong> 😴</li>
+        <li>쉬는 시간 제한 초과 → <strong>방방 뛰며</strong> 알림 🦘</li>
+      </ul>
+      드래그로 옮길 수 있고, 고급 설정에서 끌 수 있습니다. (Claude 작업 감지는 Claude Code hook이 로컬 서버에 알려주며, 신호가 끊기면 3분 뒤 자동으로 대기로 돌아갑니다.)
     </div>
 
     <h2>2. 화면 구성</h2>

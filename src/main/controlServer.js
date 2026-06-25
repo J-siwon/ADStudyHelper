@@ -11,9 +11,36 @@ const os = require('os');
 let manualBreak = false;
 let server = null;
 
+// Claude Code 작업 상태 (hook이 /claude/working·/claude/done 으로 갱신).
+let claudeWorking = false;
+let lastClaudePing = 0;
+let claudeStatusListener = null;
+let claudeWatchdog = null;
+// 신호가 끊겨도(예: Claude 크래시) 일정 시간 뒤 안전하게 idle 처리.
+const CLAUDE_TIMEOUT_MS = 180 * 1000;
+
 /** Returns the current manualBreak flag. awayManager polls this to suppress notifications. */
 function getManualBreak() {
   return manualBreak;
+}
+
+/** Returns whether Claude Code is currently working (hook으로 갱신됨). */
+function getClaudeWorking() {
+  return claudeWorking;
+}
+
+/** index.js가 펫 자세 갱신을 위해 상태 변경 콜백을 등록. */
+function setClaudeStatusListener(cb) {
+  claudeStatusListener = cb;
+}
+
+function setClaudeWorking(working) {
+  const changed = claudeWorking !== working;
+  claudeWorking = working;
+  if (working) lastClaudePing = Date.now();
+  if (changed && typeof claudeStatusListener === 'function') {
+    try { claudeStatusListener(claudeWorking); } catch (e) { /* noop */ }
+  }
 }
 
 /** Returns the first non-loopback IPv4 LAN address, or '127.0.0.1' if none found. */
@@ -62,6 +89,19 @@ function handleRequest(port) {
   return function (req, res) {
     const url = req.url.split('?')[0];
 
+    // Claude Code hook 상태 갱신 (GET/POST 무관)
+    if (url === '/claude/working' || url === '/claude/done') {
+      setClaudeWorking(url === '/claude/working');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, working: claudeWorking }));
+      return;
+    }
+    if (url === '/claude/status') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ working: claudeWorking }));
+      return;
+    }
+
     if (url === '/break') {
       manualBreak = true;
       const body = `<p class="status">쉬는시간 등록됨 — 알림이 꺼졌습니다.</p>
@@ -100,13 +140,32 @@ function startControlServer(port) {
   server.listen(port, '0.0.0.0', () => {
     console.log(`[controlServer] 폰 제어 서버 시작: http://${getLanIp()}:${port}`);
   });
+  // 워치독: Claude hook 신호가 끊기면 일정 시간 뒤 idle 처리 (크래시 대비)
+  if (!claudeWatchdog) {
+    claudeWatchdog = setInterval(() => {
+      if (claudeWorking && Date.now() - lastClaudePing > CLAUDE_TIMEOUT_MS) {
+        setClaudeWorking(false);
+      }
+    }, 15 * 1000);
+  }
 }
 
 /** Stop the control HTTP server. manualBreak state is preserved across restarts. */
 function stopControlServer() {
+  if (claudeWatchdog) {
+    clearInterval(claudeWatchdog);
+    claudeWatchdog = null;
+  }
   if (!server) return;
   server.close();
   server = null;
 }
 
-module.exports = { startControlServer, stopControlServer, getManualBreak, getLanIp };
+module.exports = {
+  startControlServer,
+  stopControlServer,
+  getManualBreak,
+  getLanIp,
+  getClaudeWorking,
+  setClaudeStatusListener,
+};

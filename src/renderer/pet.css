@@ -32,8 +32,15 @@ html, body {
 .pet { display: block; }
 
 /* ── 자세별 요소 표시 토글 ───────────────────────────── */
-.eyes-closed, .acc-cap, .mouth-o, .excl { display: none; }
+.eyes-closed, .acc-cap, .mouth-o, .excl, .acc-laptop, .acc-code { display: none; }
 .eyes-open, .mouth-smile, .acc-pencil { display: block; }
+
+/* STUDY: 기본(연필+공부) — 추가 토글 없음 */
+
+/* CODING: 연필 대신 노트북+코드, 뜬 눈 유지 */
+.stage.coding .acc-pencil { display: none; }
+.stage.coding .acc-laptop,
+.stage.coding .acc-code { display: block; }
 
 /* SLEEP: 감은 눈 + 잠모자, 연필/스마일 숨김 */
 .stage.sleep .eyes-open,
@@ -41,6 +48,13 @@ html, body {
 .stage.sleep .acc-pencil { display: none; }
 .stage.sleep .eyes-closed,
 .stage.sleep .acc-cap { display: block; }
+
+/* DESKSLEEP: 컴퓨터 앞에서 잠 — 감은 눈 + 노트북 + Zzz (잠모자 없음) */
+.stage.deskSleep .eyes-open,
+.stage.deskSleep .mouth-smile,
+.stage.deskSleep .acc-pencil { display: none; }
+.stage.deskSleep .eyes-closed,
+.stage.deskSleep .acc-laptop { display: block; }
 
 /* ALERT: 놀람 표시 + 입 벌림 */
 .stage.alert .excl { display: block; }
@@ -55,8 +69,25 @@ html, body {
   50%      { transform: translateY(-5px) rotate(2deg); }
 }
 
-/* SLEEP: 천천히 숨쉬기 */
-.stage.sleep .bouncer { animation: breathe 3.6s ease-in-out infinite; }
+/* CODING: 빠르게 타이핑하듯 까딱 + 화면 코드 깜빡임 */
+.stage.coding .bouncer { animation: typing 0.55s ease-in-out infinite; }
+@keyframes typing {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-2px) rotate(0.6deg); }
+}
+.stage.coding .code-line { animation: codeBlink 1.05s steps(1) infinite; }
+.stage.coding .cl2 { animation-delay: 0.35s; }
+.stage.coding .cl3 { animation-delay: 0.7s; }
+@keyframes codeBlink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.25; } }
+.stage.coding .acc-code { animation: floatUp 1.6s ease-in-out infinite; }
+@keyframes floatUp {
+  0%, 100% { opacity: 0.85; transform: translateY(0); }
+  50%      { opacity: 1; transform: translateY(-4px); }
+}
+
+/* SLEEP / DESKSLEEP: 천천히 숨쉬기 */
+.stage.sleep .bouncer,
+.stage.deskSleep .bouncer { animation: breathe 3.6s ease-in-out infinite; }
 @keyframes breathe {
   0%, 100% { transform: scale(1) translateY(0); }
   50%      { transform: scale(1.04) translateY(2px); }
@@ -80,7 +111,8 @@ html, body {
 
 /* ── Zzz (sleep) ─────────────────────────────────────── */
 .zzz { position: absolute; top: 24px; right: 34px; display: none; }
-.stage.sleep .zzz { display: block; }
+.stage.sleep .zzz,
+.stage.deskSleep .zzz { display: block; }
 .zzz .z {
   position: absolute;
   font-weight: 800;

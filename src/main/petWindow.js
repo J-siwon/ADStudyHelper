@@ -5,9 +5,17 @@ const { BrowserWindow, screen } = require('electron');
 
 let win = null;
 
-// WORK/BREAK → 펫 지속 자세 매핑 (순수 함수, 단독 테스트 노출)
-function poseForState(state) {
-  return state === 'WORK' ? 'study' : 'sleep';
+// (내 집중상태 WORK/BREAK) × (Claude Code 작업중 여부) → 펫 지속 자세 매핑
+// (순수 함수, 단독 테스트 노출)
+//   WORK  + Claude 작업중 → coding    (코딩하는 모습)
+//   WORK  + Claude 대기   → study     (기본 공부 모습)
+//   BREAK + Claude 작업중 → deskSleep (컴퓨터 앞에서 자는 모습)
+//   BREAK + Claude 대기   → sleep     (자는 모습)
+function poseForState(state, claudeWorking) {
+  if (state === 'WORK') {
+    return claudeWorking ? 'coding' : 'study';
+  }
+  return claudeWorking ? 'deskSleep' : 'sleep';
 }
 
 const PET_WIDTH = 200;
@@ -64,10 +72,10 @@ function sendState(stage) {
   }
 }
 
-// 펫 창 표시 (없으면 생성). 초기 WORK/BREAK 상태 자세를 로드 완료 후 전송.
-function showPet(initialFocusState) {
+// 펫 창 표시 (없으면 생성). 초기 자세를 로드 완료 후 전송.
+function showPet(initialFocusState, claudeWorking) {
   const w = createPetWindow();
-  const pose = poseForState(initialFocusState || 'BREAK');
+  const pose = poseForState(initialFocusState || 'BREAK', !!claudeWorking);
   if (w.webContents.isLoading()) {
     w.webContents.once('did-finish-load', () => sendState(pose));
   } else {
@@ -77,9 +85,9 @@ function showPet(initialFocusState) {
   return w;
 }
 
-// 현재 WORK/BREAK 상태를 펫 자세로 반영
-function setPetState(focusStateValue) {
-  sendState(poseForState(focusStateValue));
+// 현재 (집중상태 × Claude 작업여부)를 펫 자세로 반영
+function setPetState(focusStateValue, claudeWorking) {
+  sendState(poseForState(focusStateValue, !!claudeWorking));
 }
 
 // 쉬는시간 제한 도달 → 방방 뛰기 + 말풍선

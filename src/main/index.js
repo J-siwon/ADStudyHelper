@@ -49,7 +49,7 @@ const petWindow        = require('./petWindow');
 const gazeManager      = require('./gazeManager');
 const { createAwayManager } = require('./awayManager');
 const notifier         = require('./notifier');
-const { startControlServer, stopControlServer, getManualBreak, getLanIp } = require('./controlServer');
+const { startControlServer, stopControlServer, getManualBreak, getLanIp, getClaudeWorking, setClaudeStatusListener } = require('./controlServer');
 
 let mainWindow = null;
 let helpWindow = null;
@@ -186,12 +186,18 @@ function createTray() {
   }
 }
 
+// 현재 집중상태 × Claude 작업여부 → 펫 자세 갱신
+function updatePetPose() {
+  if (!focusState) return;
+  petWindow.setPetState(focusState.getState(), getClaudeWorking());
+}
+
 function startFocusState() {
   focusState = new FocusState({});  // FOCUS_BREAK_SEC 환경변수 또는 기본 600초
 
-  // WORK/BREAK 전환 → 펫 자세 반영 (공부/자기)
-  focusState.on('stateChange', (state) => {
-    petWindow.setPetState(state);
+  // WORK/BREAK 전환 → 펫 자세 반영 (Claude 작업여부와 조합)
+  focusState.on('stateChange', () => {
+    updatePetPose();
   });
 
   // 쉬는시간 제한(BREAK 임계값) 도달 → 펫이 방방 뛰며 말풍선
@@ -303,7 +309,7 @@ ipcMain.handle('settings:set', async (_event, partial) => {
 
   // petEnabled 변경 시 펫 창 표시/숨김
   if (updated.petEnabled) {
-    petWindow.showPet(focusState ? focusState.getState() : 'BREAK');
+    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getClaudeWorking());
   } else {
     petWindow.hidePet();
   }
@@ -337,9 +343,12 @@ app.whenReady().then(() => {
   startAwayManager();
   startControlServer(47616);
 
+  // Claude Code 작업 상태(hook으로 갱신)가 바뀌면 펫 자세 갱신
+  setClaudeStatusListener(() => updatePetPose());
+
   // 펫 창 표시 (설정에서 끄지 않았으면 기본 on)
   if (store.getSettings().petEnabled) {
-    petWindow.showPet(focusState ? focusState.getState() : 'BREAK');
+    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getClaudeWorking());
   }
 
   app.on('activate', () => {

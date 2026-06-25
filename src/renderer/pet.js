@@ -9,11 +9,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const stage = document.getElementById('stage');
   if (!stage) return;
 
-  let baseStage = 'sleep';   // study|sleep — 지속 상태
+  const BASE_STAGES = ['coding', 'study', 'deskSleep', 'sleep'];
+  let baseStage = 'sleep';   // coding|study|deskSleep|sleep — 지속 상태
   let alertTimer = null;
 
   function applyStage(cls) {
-    stage.classList.remove('study', 'sleep', 'alert');
+    stage.classList.remove('coding', 'study', 'deskSleep', 'sleep', 'alert');
     stage.classList.add(cls);
   }
 
@@ -38,7 +39,7 @@ window.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      if (state === 'study' || state === 'sleep') {
+      if (BASE_STAGES.indexOf(state) !== -1) {
         baseStage = state;
         clearAlertTimer();   // 새 지속 상태가 오면 alert 종료
         applyStage(state);
