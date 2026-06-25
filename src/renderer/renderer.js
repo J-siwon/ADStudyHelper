@@ -24,6 +24,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const urlsLabel      = document.getElementById('urlsLabel');
   const urlModeHint    = document.getElementById('urlModeHint');
   const helpBtn        = document.getElementById('helpBtn');
+  const cameraPreviewBtn = document.getElementById('cameraPreviewBtn');
   const settingsBtn    = document.getElementById('settingsBtn');
   const closeSettingsBtn = document.getElementById('closeSettingsBtn');
   const settingsOverlay  = document.getElementById('settingsOverlay');
@@ -70,6 +71,15 @@ window.addEventListener('DOMContentLoaded', () => {
     settingsOverlay.classList.remove('open');
     settingsOverlay.setAttribute('aria-hidden', 'true');
   }
+  // 카메라 미리보기 창 다시 띄우기
+  if (cameraPreviewBtn) {
+    cameraPreviewBtn.addEventListener('click', () => {
+      if (window.focusAPI && typeof window.focusAPI.showCameraPreview === 'function') {
+        window.focusAPI.showCameraPreview();
+      }
+    });
+  }
+
   if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
   if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
   // 패널 바깥(어두운 배경) 클릭 시 닫기
@@ -137,6 +147,11 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       const mark = s.state === 'WORK' ? '집중' : '휴식';
       currentAppEl.textContent = `현재 활성: ${label} → ${mark}`;
+
+      // 카메라 미리보기 버튼은 웹캠 추적이 켜졌을 때만 노출
+      if (cameraPreviewBtn) {
+        cameraPreviewBtn.style.display = s.cameraEnabled ? '' : 'none';
+      }
 
       // 웹캠 상태 배지
       if (cameraBadgeEl) {

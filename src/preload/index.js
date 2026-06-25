@@ -53,4 +53,9 @@ contextBridge.exposeInMainWorld('focusAPI', {
   openHelp() {
     return ipcRenderer.invoke('help:open');
   },
+
+  // renderer -> main: 카메라 미리보기 창 다시 띄우기
+  showCameraPreview() {
+    return ipcRenderer.invoke('camera:showPreview');
+  },
 });

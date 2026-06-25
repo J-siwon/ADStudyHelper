@@ -37,10 +37,17 @@ function pickCameraSource(settings) {
 let gazeWin = null;
 let onGazeUpdate = null; // (shouldBreak: boolean) => void
 let pollInterval = null;
+let allowDestroy = false; // 사용자가 X로 닫으면 파괴 대신 숨김(인식 지속), 진짜 종료 때만 true
 
-// 숨김 BrowserWindow에서 웹캠/스트림 접근 + gaze 판정 결과를 IPC로 수신
+// BrowserWindow에서 웹캠/스트림 접근 + gaze 판정 결과를 IPC로 수신.
+// 창은 미리보기로 보이지만, 닫아도(숨겨도) 인식은 계속된다.
 function startGaze({ cameraDeviceId, cameraSource, cameraStreamUrl, onUpdate }) {
-  if (gazeWin && !gazeWin.isDestroyed()) return;
+  // 이미 창이 있으면(숨겨져 있을 수도) 다시 보여주기만
+  if (gazeWin && !gazeWin.isDestroyed()) {
+    onGazeUpdate = onUpdate || onGazeUpdate;
+    gazeWin.show();
+    return;
+  }
 
   onGazeUpdate = onUpdate;
 
@@ -58,6 +65,7 @@ function startGaze({ cameraDeviceId, cameraSource, cameraStreamUrl, onUpdate }) 
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false, // 숨겨도 인식 루프가 풀속도로 계속 돌도록
       preload: path.join(__dirname, '../preload/gaze.js'),
     },
   });
@@ -72,6 +80,14 @@ function startGaze({ cameraDeviceId, cameraSource, cameraStreamUrl, onUpdate }) 
       cameraSource: source.mode,
       cameraStreamUrl: source.streamUrl,
     });
+  });
+
+  // 사용자가 X로 닫으면 파괴하지 않고 숨김 → 인식 계속. 진짜 종료(stopGaze) 때만 파괴.
+  gazeWin.on('close', (e) => {
+    if (!allowDestroy && gazeWin && !gazeWin.isDestroyed()) {
+      e.preventDefault();
+      gazeWin.hide();
+    }
   });
 
   gazeWin.on('closed', () => {
@@ -91,15 +107,34 @@ function startGaze({ cameraDeviceId, cameraSource, cameraStreamUrl, onUpdate }) 
 function stopGaze() {
   ipcMain.removeAllListeners('gaze:update');
   if (gazeWin && !gazeWin.isDestroyed()) {
-    gazeWin.close();
+    allowDestroy = true;   // 진짜 파괴 허용
+    gazeWin.destroy();
     gazeWin = null;
+    allowDestroy = false;
   }
   onGazeUpdate = null;
+}
+
+// 숨겨둔 미리보기 창을 다시 표시 (인식은 계속 돌던 중). 창이 있으면 true.
+function showGazeWindow() {
+  if (gazeWin && !gazeWin.isDestroyed()) {
+    gazeWin.show();
+    gazeWin.focus();
+    return true;
+  }
+  return false;
+}
+
+// 현재 gaze(카메라) 창이 살아있는지 (숨김 포함)
+function hasGazeWindow() {
+  return !!(gazeWin && !gazeWin.isDestroyed());
 }
 
 module.exports = {
   startGaze,
   stopGaze,
+  showGazeWindow,
+  hasGazeWindow,
   // 순수 로직 — 테스트 노출
   _shouldForceBreak: shouldForceBreak,
   _isValidStreamUrl: isValidStreamUrl,

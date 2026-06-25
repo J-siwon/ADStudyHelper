@@ -323,6 +323,16 @@ ipcMain.handle('help:open', async () => {
   return { ok: true };
 });
 
+// 카메라 미리보기 창 다시 띄우기 (숨겨져 있으면 표시, 없으면 생성). 인식은 그동안도 계속됨.
+ipcMain.handle('camera:showPreview', async () => {
+  const settings = store.getSettings();
+  if (!settings.cameraEnabled) {
+    return { ok: false, reason: 'disabled' };
+  }
+  startGazeTracking();   // startGaze가 숨김창은 show, 없으면 생성
+  return { ok: true };
+});
+
 // 폰 제어 서버 LAN IP 조회
 ipcMain.handle('control:getLanIp', async () => {
   return getLanIp();
