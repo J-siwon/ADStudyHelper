@@ -114,8 +114,8 @@ html, body {
   color: var(--break-color);
 }
 
-/* 도움말 버튼 */
-.help-btn {
+/* 헤더 아이콘 버튼 (설정 · 도움말) */
+.icon-btn {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -127,7 +127,7 @@ html, body {
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
-.help-btn:hover {
+.icon-btn:hover {
   background: rgba(124, 131, 253, 0.12);
   border-color: var(--accent);
   color: var(--accent);
@@ -143,9 +143,11 @@ html, body {
 
 /* 타이머 */
 .main {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 36px 0;
   background: var(--surface);
@@ -375,4 +377,73 @@ html, body {
 .toggle input:checked + .toggle-slider::before {
   transform: translateX(18px);
   background: var(--accent);
+}
+
+/* ── 설정 오버레이 (페이드 인/아웃) ─────────────────── */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 28px 16px 40px;
+  overflow-y: auto;
+  background: rgba(16, 18, 30, 0.82);
+  /* 페이드 + 자연스러운 등장 */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
+}
+.settings-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.settings-panel {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transform: translateY(10px) scale(0.985);
+  transition: transform 0.28s ease;
+}
+.settings-overlay.open .settings-panel {
+  transform: translateY(0) scale(1);
+}
+
+.settings-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 0;
+}
+.settings-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+.close-settings-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.close-settings-btn:hover {
+  background: rgba(247, 151, 30, 0.14);
+  border-color: var(--break-color);
+  color: var(--break-color);
+}
+
+.settings-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }

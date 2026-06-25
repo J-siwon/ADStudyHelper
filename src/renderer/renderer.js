@@ -24,6 +24,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const urlsLabel      = document.getElementById('urlsLabel');
   const urlModeHint    = document.getElementById('urlModeHint');
   const helpBtn        = document.getElementById('helpBtn');
+  const settingsBtn    = document.getElementById('settingsBtn');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+  const settingsOverlay  = document.getElementById('settingsOverlay');
   const saveBtn        = document.getElementById('saveBtn');
   const saveStatusEl   = document.getElementById('saveStatus');
 
@@ -55,6 +58,32 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // 설정 오버레이 열기/닫기 (페이드 인/아웃)
+  function openSettings() {
+    if (!settingsOverlay) return;
+    settingsOverlay.classList.add('open');
+    settingsOverlay.setAttribute('aria-hidden', 'false');
+  }
+  function closeSettings() {
+    if (!settingsOverlay) return;
+    settingsOverlay.classList.remove('open');
+    settingsOverlay.setAttribute('aria-hidden', 'true');
+  }
+  if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+  if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
+  // 패널 바깥(어두운 배경) 클릭 시 닫기
+  if (settingsOverlay) {
+    settingsOverlay.addEventListener('click', (e) => {
+      if (e.target === settingsOverlay) closeSettings();
+    });
+  }
+  // Esc로 닫기
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && settingsOverlay && settingsOverlay.classList.contains('open')) {
+      closeSettings();
+    }
+  });
 
   if (!window.focusAPI) {
     // preload 미연결 환경(개발용 브라우저 직접 열기 등)에서 경고 표시

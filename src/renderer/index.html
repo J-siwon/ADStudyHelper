@@ -8,121 +8,127 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- 메인: 오늘 집중 시간 + 현재 활성만 -->
   <div class="dashboard">
-    <!-- 헤더 -->
     <header class="header">
       <h1 class="app-title">ADStudyHelper</h1>
       <div class="badges">
         <span class="badge badge-state break" id="stateBadge">BREAK</span>
         <span class="badge badge-connection" id="connectionBadge">확장 미연결</span>
         <span class="badge badge-camera" id="cameraBadge">웹캠 꺼짐</span>
-        <button class="help-btn" id="helpBtn" title="사용 방법">❓ 도움말</button>
+        <button class="icon-btn" id="settingsBtn" title="설정">⚙ 설정</button>
+        <button class="icon-btn" id="helpBtn" title="사용 방법">❓ 도움말</button>
       </div>
     </header>
 
-    <!-- 타이머 -->
     <main class="main">
       <div class="timer-label">오늘 집중 시간</div>
       <div class="timer" id="timer">00:00:00</div>
       <div class="break-timer" id="breakTimer" style="display:none"></div>
       <div class="current-app" id="currentApp">현재 활성: —</div>
     </main>
+  </div>
 
-    <!-- 화이트리스트 에디터 -->
-    <section class="whitelist-section">
-      <h2 class="section-title">집중 판정 목록</h2>
-
-      <!-- URL 판정 방식 -->
-      <div class="setting-row">
-        <label class="setting-label" for="urlModeSelect">URL 판정 방식</label>
-        <select class="setting-select" id="urlModeSelect">
-          <option value="allow">허용 목록 (목록만 집중 인정)</option>
-          <option value="block">제한 목록 (목록만 휴식 처리)</option>
-        </select>
-      </div>
-      <p class="wl-hint" id="urlModeHint"></p>
-
-      <div class="whitelist-editor">
-        <div class="wl-col">
-          <label class="wl-label" for="appsTextarea">허용 앱 (항상 집중 인정)</label>
-          <textarea class="wl-textarea" id="appsTextarea" placeholder="한 줄에 하나씩 입력&#10;예: Code"></textarea>
-        </div>
-        <div class="wl-col">
-          <label class="wl-label" for="urlsTextarea" id="urlsLabel">허용 URL 패턴</label>
-          <textarea class="wl-textarea" id="urlsTextarea" placeholder="한 줄에 하나씩 입력&#10;예: github.com"></textarea>
-        </div>
-      </div>
-      <div class="save-row">
-        <button class="save-btn" id="saveBtn">저장</button>
-        <span class="save-status" id="saveStatus"></span>
-      </div>
-    </section>
-
-    <!-- Phase 2 설정 패널 -->
-    <section class="settings-section">
-      <h2 class="section-title">고급 설정</h2>
-
-      <!-- 펫 표시 -->
-      <div class="setting-row">
-        <label class="setting-label" for="petToggle">클로드 펫 표시</label>
-        <label class="toggle">
-          <input type="checkbox" id="petToggle" />
-          <span class="toggle-slider"></span>
-        </label>
+  <!-- 설정 오버레이: 같은 화면 위로 페이드 인/아웃 -->
+  <div class="settings-overlay" id="settingsOverlay" aria-hidden="true">
+    <div class="settings-panel">
+      <div class="settings-topbar">
+        <h2 class="settings-heading">설정</h2>
+        <button class="close-settings-btn" id="closeSettingsBtn" title="닫기">✕</button>
       </div>
 
-      <!-- 카메라 추적 -->
-      <div class="setting-row">
-        <label class="setting-label" for="cameraToggle">웹캠 시선 추적</label>
-        <label class="toggle">
-          <input type="checkbox" id="cameraToggle" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="setting-row" id="cameraSourceRow">
-        <label class="setting-label" for="cameraSourceSelect">카메라 소스</label>
-        <select class="setting-select" id="cameraSourceSelect">
-          <option value="webcam">내장 웹캠</option>
-          <option value="stream">폰 스트림</option>
-        </select>
-      </div>
-      <div class="setting-row" id="cameraDeviceRow">
-        <label class="setting-label" for="cameraDeviceSelect">카메라 장치</label>
-        <select class="setting-select" id="cameraDeviceSelect">
-          <option value="">기본 장치</option>
-        </select>
-      </div>
-      <div class="setting-row" id="cameraStreamRow">
-        <label class="setting-label" for="cameraStreamUrlInput">폰 스트림 URL</label>
-        <input class="setting-input" type="text" id="cameraStreamUrlInput"
-               placeholder="예: http://192.168.0.x:8080/video" />
-      </div>
+      <div class="settings-scroll">
+        <!-- 집중 판정 목록 -->
+        <section class="whitelist-section">
+          <h3 class="section-title">집중 판정 목록</h3>
 
-      <!-- ntfy 토픽 -->
-      <div class="setting-row">
-        <label class="setting-label" for="ntfyTopicInput">ntfy 토픽</label>
-        <input class="setting-input" type="text" id="ntfyTopicInput"
-               placeholder="예: my-focus-alerts" />
-      </div>
+          <div class="setting-row">
+            <label class="setting-label" for="urlModeSelect">URL 판정 방식</label>
+            <select class="setting-select" id="urlModeSelect">
+              <option value="allow">허용 목록 (목록만 집중 인정)</option>
+              <option value="block">제한 목록 (목록만 휴식 처리)</option>
+            </select>
+          </div>
+          <p class="wl-hint" id="urlModeHint"></p>
 
-      <!-- 자리 비움 임계값 -->
-      <div class="setting-row">
-        <label class="setting-label" for="awayThresholdInput">자리 비움 알림 (분)</label>
-        <input class="setting-input setting-input--short" type="number"
-               id="awayThresholdInput" min="1" max="120" value="10" />
-      </div>
+          <div class="whitelist-editor">
+            <div class="wl-col">
+              <label class="wl-label" for="appsTextarea">허용 앱 (항상 집중 인정)</label>
+              <textarea class="wl-textarea" id="appsTextarea" placeholder="한 줄에 하나씩 입력&#10;예: Code"></textarea>
+            </div>
+            <div class="wl-col">
+              <label class="wl-label" for="urlsTextarea" id="urlsLabel">허용 URL 패턴</label>
+              <textarea class="wl-textarea" id="urlsTextarea" placeholder="한 줄에 하나씩 입력&#10;예: github.com"></textarea>
+            </div>
+          </div>
+          <div class="save-row">
+            <button class="save-btn" id="saveBtn">저장</button>
+            <span class="save-status" id="saveStatus"></span>
+          </div>
+        </section>
 
-      <!-- 폰 제어 주소 -->
-      <div class="setting-row">
-        <label class="setting-label">폰 제어 주소</label>
-        <span class="setting-value" id="controlUrl">—</span>
-      </div>
+        <!-- 세부 설정 -->
+        <section class="settings-section">
+          <h3 class="section-title">세부 설정</h3>
 
-      <div class="save-row">
-        <button class="save-btn" id="settingsSaveBtn">설정 저장</button>
-        <span class="save-status" id="settingsSaveStatus"></span>
+          <div class="setting-row">
+            <label class="setting-label" for="petToggle">클로드 펫 표시</label>
+            <label class="toggle">
+              <input type="checkbox" id="petToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <label class="setting-label" for="cameraToggle">웹캠 시선 추적</label>
+            <label class="toggle">
+              <input type="checkbox" id="cameraToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row" id="cameraSourceRow">
+            <label class="setting-label" for="cameraSourceSelect">카메라 소스</label>
+            <select class="setting-select" id="cameraSourceSelect">
+              <option value="webcam">내장 웹캠</option>
+              <option value="stream">폰 스트림</option>
+            </select>
+          </div>
+          <div class="setting-row" id="cameraDeviceRow">
+            <label class="setting-label" for="cameraDeviceSelect">카메라 장치</label>
+            <select class="setting-select" id="cameraDeviceSelect">
+              <option value="">기본 장치</option>
+            </select>
+          </div>
+          <div class="setting-row" id="cameraStreamRow">
+            <label class="setting-label" for="cameraStreamUrlInput">폰 스트림 URL</label>
+            <input class="setting-input" type="text" id="cameraStreamUrlInput"
+                   placeholder="예: http://192.168.0.x:8080/video" />
+          </div>
+
+          <div class="setting-row">
+            <label class="setting-label" for="ntfyTopicInput">ntfy 토픽</label>
+            <input class="setting-input" type="text" id="ntfyTopicInput"
+                   placeholder="예: my-focus-alerts" />
+          </div>
+
+          <div class="setting-row">
+            <label class="setting-label" for="awayThresholdInput">자리 비움 알림 (분)</label>
+            <input class="setting-input setting-input--short" type="number"
+                   id="awayThresholdInput" min="1" max="120" value="10" />
+          </div>
+
+          <div class="setting-row">
+            <label class="setting-label">폰 제어 주소</label>
+            <span class="setting-value" id="controlUrl">—</span>
+          </div>
+
+          <div class="save-row">
+            <button class="save-btn" id="settingsSaveBtn">설정 저장</button>
+            <span class="save-status" id="settingsSaveStatus"></span>
+          </div>
+        </section>
       </div>
-    </section>
+    </div>
   </div>
 
   <script src="renderer.js"></script>
