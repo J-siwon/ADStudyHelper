@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ADStudyHelper — 변경 기록 (Before / After)</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#1a1d2e;--surface:#232639;--surface2:#1e2236;--border:#2e3150;
+    --accent:#7c83fd;--accent-dim:#4e5399;--work:#43e97b;--break:#f7971e;
+    --text:#e2e5f0;--text-dim:#8a8fbb;--claude:#CC785C;--radius:12px;
+  }
+  html,body{background:var(--bg);color:var(--text);
+    font-family:'Segoe UI','Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.6}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 80px}
+  h1{font-size:26px;color:var(--accent);letter-spacing:.02em}
+  .sub{color:var(--text-dim);font-size:14px;margin:6px 0 8px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 8px;font-size:12px}
+  .tag{padding:2px 10px;border-radius:999px;font-weight:700}
+  .tag.before{background:rgba(247,151,30,.14);color:var(--break);border:1px solid var(--break)}
+  .tag.after{background:rgba(67,233,123,.14);color:var(--work);border:1px solid var(--work)}
+
+  .block{margin-top:34px;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:20px 22px}
+  .block h2{font-size:18px;margin-bottom:4px}
+  .block .why{color:var(--text-dim);font-size:13.5px;margin:6px 0 14px}
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.ba{grid-template-columns:1fr}}
+  .pane{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface2)}
+  .pane>.cap{font-size:12px;font-weight:700;padding:6px 10px;display:flex;align-items:center;gap:8px}
+  .pane.b>.cap{background:rgba(247,151,30,.10);color:var(--break)}
+  .pane.a>.cap{background:rgba(67,233,123,.10);color:var(--work)}
+  .stagebox{padding:16px;min-height:210px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+  .note{font-size:12px;color:var(--text-dim);padding:0 12px 12px;text-align:center}
+
+  /* 미니 대시보드 목업 */
+  .mini{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;position:relative;overflow:hidden}
+  .mini .mh{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:8px}
+  .mini .mt{font-size:11px;font-weight:700;color:var(--accent)}
+  .mb{display:flex;gap:4px;flex-wrap:wrap}
+  .pill{font-size:9px;padding:2px 7px;border-radius:999px;font-weight:700}
+  .pill.brk{background:var(--break);color:#3a2400}.pill.wrk{background:var(--work);color:#143}
+  .pill.dim{background:var(--surface);border:1px solid var(--border);color:var(--text-dim)}
+  .pill.btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);cursor:pointer}
+  .tlabel{font-size:9px;color:var(--text-dim);text-transform:uppercase;text-align:center;margin-top:6px}
+  .timer{font-size:34px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+  .curapp{font-size:10px;color:var(--text-dim);text-align:center;margin-top:4px}
+  .brk-t{font-size:11px;color:var(--break);text-align:center;font-weight:700;margin-top:4px}
+  .msec{margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 9px}
+  .msec .st{font-size:9px;color:var(--text-dim);text-transform:uppercase;font-weight:700}
+  .msec .row{display:flex;justify-content:space-between;font-size:9px;color:var(--text-dim);margin-top:3px}
+  .mini .center{display:flex;flex-direction:column;justify-content:center;min-height:120px}
+
+  /* 설정 오버레이 라이브 데모 */
+  .demo-overlay{position:absolute;inset:0;background:rgba(16,18,30,.85);
+    display:flex;align-items:flex-start;justify-content:center;padding:14px;
+    opacity:0;visibility:hidden;transition:opacity .28s ease,visibility .28s ease}
+  .demo-overlay.open{opacity:1;visibility:visible}
+  .demo-panel{width:100%;transform:translateY(8px) scale(.97);transition:transform .28s ease}
+  .demo-overlay.open .demo-panel{transform:none}
+  .demo-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .demo-top b{font-size:11px;color:var(--accent)}
+  .xbtn{width:18px;height:18px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:10px;cursor:pointer;line-height:1}
+
+  /* ── 펫 (실제 pet.css 발췌) ── */
+  .pet-tile{width:150px;text-align:center}
+  .stage{position:relative;width:150px;height:150px;margin:0 auto}
+  .bouncer{transform-origin:50% 90%}
+  .pet{display:block}
+  .eyes-closed,.acc-cap,.mouth-o,.excl,.acc-laptop,.acc-code{display:none}
+  .eyes-open,.mouth-smile,.acc-pencil{display:block}
+  .stage.coding .acc-pencil{display:none}
+  .stage.coding .acc-laptop,.stage.coding .acc-code{display:block}
+  .stage.sleep .eyes-open,.stage.sleep .mouth-smile,.stage.sleep .acc-pencil{display:none}
+  .stage.sleep .eyes-closed,.stage.sleep .acc-cap{display:block}
+  .stage.deskSleep .eyes-open,.stage.deskSleep .mouth-smile,.stage.deskSleep .acc-pencil{display:none}
+  .stage.deskSleep .eyes-closed,.stage.deskSleep .acc-laptop{display:block}
+  .stage.alert .excl{display:block}.stage.alert .mouth-smile{display:none}.stage.alert .mouth-o{display:block}
+  .stage.study .bouncer{animation:bob 2.4s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
+  .stage.coding .bouncer{animation:typing .55s ease-in-out infinite}
+  @keyframes typing{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-2px) rotate(.6deg)}}
+  .stage.coding .code-line{animation:blink 1.05s steps(1) infinite}
+  .stage.coding .cl2{animation-delay:.35s}.stage.coding .cl3{animation-delay:.7s}
+  @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:.25}}
+  .stage.coding .acc-code{animation:fl 1.6s ease-in-out infinite}
+  @keyframes fl{0%,100%{opacity:.85;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
+  .stage.sleep .bouncer,.stage.deskSleep .bouncer{animation:breathe 3.6s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04) translateY(2px)}}
+  .stage.alert .bouncer{animation:hop .5s cubic-bezier(.3,.7,.4,1) infinite}
+  @keyframes hop{0%{transform:translateY(0) scaleY(.92) scaleX(1.06)}30%{transform:translateY(-26px) scaleY(1.08) scaleX(.95)}60%{transform:translateY(0) scaleY(.9) scaleX(1.08)}100%{transform:none}}
+  .zzz{position:absolute;top:18px;right:30px;display:none}
+  .stage.sleep .zzz,.stage.deskSleep .zzz{display:block}
+  .zzz .z{position:absolute;font-weight:800;color:#6C5CE7;opacity:0;animation:zf 3s ease-in-out infinite}
+  .z1{font-size:15px}.z2{font-size:12px;left:11px;animation-delay:.8s}.z3{font-size:9px;left:20px;animation-delay:1.6s}
+  @keyframes zf{0%{opacity:0;transform:translateY(6px) scale(.8)}30%{opacity:1}100%{opacity:0;transform:translateY(-20px) scale(1.1)}}
+  .pet-label{font-size:11px;color:var(--text-dim);margin-top:4px;font-weight:600}
+  .pet-label b{color:var(--claude)}
+
+  /* 캠 미리보기 목업 */
+  .cam{width:180px}
+  .cam .scr{width:180px;height:130px;background:#000;border-radius:8px;position:relative;overflow:hidden;border:1px solid var(--border)}
+  .cam .face{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:60px;height:74px;border:2px dashed #43e97b;border-radius:46% 46% 48% 48%/40% 40% 60% 60%;opacity:.85}
+  .cam .dot{position:absolute;width:4px;height:4px;border-radius:50%;background:#43e97b}
+  .cam .iris{position:absolute;width:7px;height:7px;border-radius:50%;background:#7c83fd}
+  .cam .hidden-lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#555;font-size:11px;font-family:monospace}
+  .cam .cb{font-size:10px;margin-top:6px;text-align:center;padding:2px 8px;border-radius:999px;display:inline-block}
+  .cam .cb.ok{background:rgba(67,233,123,.14);color:var(--work);border:1px solid var(--work)}
+
+  .commits{margin-top:34px}
+  .commits h2{font-size:18px;margin-bottom:10px}
+  .ctl{border-left:2px solid var(--border);padding-left:16px}
+  .citem{position:relative;padding:6px 0}
+  .citem::before{content:'';position:absolute;left:-21px;top:12px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+  .citem code{color:var(--claude);font-size:11px}
+  .citem .d{font-size:13px}
+  footer{margin-top:40px;color:var(--text-dim);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ADStudyHelper — 변경 기록 (Before / After)</h1>
+  <p class="sub">2026-06-24 → 06-25 업데이트 동안 바뀐 주요 화면/동작을 비교합니다. 펫·설정 페이드는 <strong>실제로 움직입니다</strong> (브라우저에서 열어보세요).</p>
+  <div class="legend"><span class="tag before">BEFORE 구버전</span><span class="tag after">AFTER 현재</span></div>
+
+  <!-- 1. 캐릭터 -->
+  <div class="block">
+    <h2>1. 캐릭터 — 고양이 팝업 → 떠다니는 클로드 펫</h2>
+    <p class="why">구버전: 휴식 10분 초과 시에만 잠깐 뜨는 고양이 팝업. 현재: 화면 구석에 <b>상시 떠다니는 클로드 펫</b>이 내 집중상태 × Claude 작업여부를 5가지 자세로 표현(아래는 실제 애니메이션).</p>
+    <div class="ba">
+      <div class="pane b">
+        <div class="cap">BEFORE · 고양이 알림 팝업</div>
+        <div class="stagebox">
+          <svg viewBox="0 0 100 100" width="96" height="96" aria-label="고양이">
+            <ellipse cx="50" cy="72" rx="28" ry="22" fill="#f9c74f"/><circle cx="50" cy="45" r="26" fill="#f9c74f"/>
+            <polygon points="26,28 20,10 38,22" fill="#f9c74f"/><polygon points="28,26 23,14 36,23" fill="#ffb3c6"/>
+            <polygon points="74,28 80,10 62,22" fill="#f9c74f"/><polygon points="72,26 77,14 64,23" fill="#ffb3c6"/>
+            <ellipse cx="41" cy="43" rx="5" ry="6" fill="#2d2d2d"/><ellipse cx="59" cy="43" rx="5" ry="6" fill="#2d2d2d"/>
+            <circle cx="43" cy="41" r="1.5" fill="#fff"/><circle cx="61" cy="41" r="1.5" fill="#fff"/>
+            <ellipse cx="50" cy="52" rx="3" ry="2" fill="#ff8fab"/>
+            <path d="M44,56 Q50,61 56,56" stroke="#2d2d2d" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="note">알림 때만 1회 등장 · 상태 표현 없음</div>
+      </div>
+      <div class="pane a">
+        <div class="cap">AFTER · 클로드 펫 (5가지 자세 순환)</div>
+        <div class="stagebox">
+          <div class="pet-tile">
+            <div class="stage study" id="petStage">
+              <div class="zzz"><span class="z z1">Z</span><span class="z z2">Z</span><span class="z z3">z</span></div>
+              <div class="bouncer">
+                <svg class="pet" viewBox="0 0 200 200" width="140" height="140" aria-label="클로드 펫">
+                  <ellipse cx="100" cy="182" rx="46" ry="9" fill="rgba(0,0,0,.18)"/>
+                  <path class="body" d="M100,28 Q122,78 172,100 Q122,122 100,172 Q78,122 28,100 Q78,78 100,28 Z" fill="#CC785C" stroke="#B05E45" stroke-width="3" stroke-linejoin="round"/>
+                  <circle cx="74" cy="112" r="7" fill="#E8A088" opacity=".7"/><circle cx="126" cy="112" r="7" fill="#E8A088" opacity=".7"/>
+                  <g class="eyes-open"><circle cx="84" cy="96" r="8" fill="#3a2a22"/><circle cx="116" cy="96" r="8" fill="#3a2a22"/><circle cx="87" cy="93" r="2.6" fill="#fff"/><circle cx="119" cy="93" r="2.6" fill="#fff"/></g>
+                  <g class="eyes-closed"><path d="M76,97 Q84,103 92,97" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M108,97 Q116,103 124,97" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+                  <path class="mouth-smile" d="M90,116 Q100,124 110,116" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <ellipse class="mouth-o" cx="100" cy="118" rx="5" ry="6" fill="#7a3b2e"/>
+                  <g class="acc-pencil"><rect x="138" y="96" width="34" height="8" rx="2" transform="rotate(35 155 100)" fill="#F4C95D" stroke="#C99B2E" stroke-width="1.5"/><polygon points="170,118 178,126 168,128" fill="#E7A977"/></g>
+                  <g class="acc-cap"><path d="M70,62 Q100,28 138,54 L120,74 Q98,58 80,74 Z" fill="#6C5CE7" stroke="#5546c4" stroke-width="2" stroke-linejoin="round"/><circle cx="140" cy="50" r="7" fill="#fff"/></g>
+                  <text class="excl" x="150" y="56" font-size="34" font-weight="900" fill="#E5484D" font-family="sans-serif">!</text>
+                  <g class="acc-laptop">
+                    <rect x="72" y="120" width="56" height="34" rx="3" fill="#3a3f5c" stroke="#23263a" stroke-width="2"/>
+                    <rect x="76" y="124" width="48" height="26" rx="2" fill="#1e2236"/>
+                    <rect class="code-line cl1" x="80" y="128" width="20" height="2.6" rx="1" fill="#CC785C"/>
+                    <rect class="code-line cl2" x="80" y="133.5" width="30" height="2.6" rx="1" fill="#6C8EEF"/>
+                    <rect class="code-line cl3" x="80" y="139" width="15" height="2.6" rx="1" fill="#43e97b"/>
+                    <path d="M64,158 L136,158 L142,168 L58,168 Z" fill="#4a4f6e" stroke="#23263a" stroke-width="2" stroke-linejoin="round"/>
+                  </g>
+                  <text class="acc-code" x="146" y="62" font-size="19" font-weight="800" fill="#6C8EEF" font-family="monospace">&lt;/&gt;</text>
+                </svg>
+              </div>
+            </div>
+            <div class="pet-label" id="petLabel"><b>study</b> · 집중(공부)</div>
+          </div>
+        </div>
+        <div class="note">study · coding · deskSleep · sleep · alert(방방) 자동 순환</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 대시보드 -->
+  <div class="block">
+    <h2>2. 대시보드 — 한 화면 나열 → 메인 간소화 + ⚙ 페이드 설정</h2>
+    <p class="why">구버전: 메인에 타이머·집중 판정 목록·고급 설정이 전부 쌓여 복잡. 현재: 메인엔 <b>오늘 집중 시간·현재 활성</b>만, 설정은 <b>⚙ → 같은 화면 위 페이드 오버레이</b>. 오른쪽 ⚙ 버튼을 눌러보세요.</p>
+    <div class="ba">
+      <div class="pane b">
+        <div class="cap">BEFORE · 전부 한 화면에</div>
+        <div class="stagebox">
+          <div class="mini">
+            <div class="mh"><span class="mt">ADStudyHelper</span><div class="mb"><span class="pill brk">BREAK</span><span class="pill dim">확장</span></div></div>
+            <div class="tlabel">오늘 집중 시간</div><div class="timer" style="font-size:24px">00:42:10</div>
+            <div class="msec"><div class="st">집중 판정 목록</div><div class="row"><span>허용 앱…</span><span>허용 URL…</span></div></div>
+            <div class="msec"><div class="st">고급 설정</div><div class="row"><span>카메라 · ntfy · 자리비움…</span></div></div>
+          </div>
+        </div>
+        <div class="note">스크롤 길고 메인이 산만</div>
+      </div>
+      <div class="pane a">
+        <div class="cap">AFTER · 메인 간소화 + 페이드 설정</div>
+        <div class="stagebox">
+          <div class="mini" id="demoMini">
+            <div class="mh"><span class="mt">ADStudyHelper</span><div class="mb"><span class="pill wrk">WORK</span><span class="pill dim">웹캠</span><span class="pill btn" id="demoOpen">⚙ 설정</span></div></div>
+            <div class="center">
+              <div class="tlabel">오늘 집중 시간</div><div class="timer">01:12:08</div>
+              <div class="curapp">현재 활성: Visual Studio Code → 집중</div>
+            </div>
+            <div class="demo-overlay" id="demoOverlay">
+              <div class="demo-panel">
+                <div class="demo-top"><b>설정</b><button class="xbtn" id="demoClose">✕</button></div>
+                <div class="msec"><div class="st">집중 판정 목록</div><div class="row"><span>허용 앱 · URL 모드</span></div></div>
+                <div class="msec"><div class="st">세부 설정</div><div class="row"><span>펫 · 카메라 · ntfy · 자리비움</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="note">⚙ 클릭 → 페이드 인 · ✕/배경/Esc → 페이드 아웃</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 타이머/상태 -->
+  <div class="block">
+    <h2>3. 타이머 · 상태 표시 강화</h2>
+    <p class="why">구버전: 앱 켠 뒤 누적되는 세션 타이머만(재시작·자정에 안 줄어듦). 현재: <b>오늘 집중 시간(자정 자동 0·재시작 유지)</b> + <b>쉬는 시간</b> + <b>현재 활성 앱</b> + <b>웹캠 배지</b>.</p>
+    <div class="ba">
+      <div class="pane b">
+        <div class="cap">BEFORE</div>
+        <div class="stagebox"><div class="mini">
+          <div class="mh"><span class="mt">ADStudyHelper</span><span class="pill brk">BREAK</span></div>
+          <div class="center"><div class="tlabel">오늘 집중 시간</div><div class="timer" style="font-size:26px">00:42:10</div></div>
+        </div></div>
+        <div class="note">세션 누적값 · 상태 정보 적음</div>
+      </div>
+      <div class="pane a">
+        <div class="cap">AFTER</div>
+        <div class="stagebox"><div class="mini">
+          <div class="mh"><span class="mt">ADStudyHelper</span><div class="mb"><span class="pill brk">BREAK</span><span class="pill dim">웹캠 연결됨</span></div></div>
+          <div class="center"><div class="tlabel">오늘 집중 시간</div><div class="timer" style="font-size:26px">01:12:08</div>
+            <div class="brk-t">쉬는 시간 00:03:20</div>
+            <div class="curapp">현재 활성: Chrome — youtube.com → 휴식</div></div>
+        </div></div>
+        <div class="note">자정 초기화 · 쉬는시간 · 현재 활성 · 웹캠 상태</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 카메라 -->
+  <div class="block">
+    <h2>4. 시선 추적 — webgazer 숨김창 → MediaPipe 미리보기</h2>
+    <p class="why">구버전: 온라인 webgazer가 보이지 않는 창에서 동작(부정확). 현재: <b>오프라인 MediaPipe FaceLandmarker</b>로 얼굴·홍채 인식, <b>미리보기 창</b>에 랜드마크 표시. ✕로 닫아도 인식 지속 + <b>📷 다시 띄우기</b> 버튼.</p>
+    <div class="ba">
+      <div class="pane b">
+        <div class="cap">BEFORE · 숨김 webgazer</div>
+        <div class="stagebox"><div class="cam"><div class="scr"><div class="hidden-lbl">(숨김 창 · 미리보기 없음)</div></div><div style="text-align:center"><span class="cb" style="color:var(--text-dim);border:1px solid var(--border)">상태 표시 없음</span></div></div></div>
+        <div class="note">온라인 의존 · 정확도 제한</div>
+      </div>
+      <div class="pane a">
+        <div class="cap">AFTER · MediaPipe 미리보기</div>
+        <div class="stagebox"><div class="cam">
+          <div class="scr">
+            <div class="face"></div>
+            <span class="dot" style="left:78px;top:62px"></span><span class="dot" style="left:102px;top:62px"></span>
+            <span class="dot" style="left:90px;top:80px"></span><span class="dot" style="left:80px;top:96px"></span><span class="dot" style="left:100px;top:96px"></span>
+            <span class="iris" style="left:76px;top:64px"></span><span class="iris" style="left:100px;top:64px"></span>
+          </div>
+          <div style="text-align:center"><span class="cb ok">얼굴 인식됨</span></div>
+        </div></div>
+        <div class="note">오프라인 · 홍채 시선 · 닫아도 인식 + 📷 재오픈</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Claude 연동 -->
+  <div class="block">
+    <h2>5. (신규) 펫이 Claude Code 작업상태 반영</h2>
+    <p class="why">Claude Code가 코딩 중이면 펫이 <b>코딩하는 모습(노트북·타이핑)</b>, 멈추면 원래 모습으로. <code>~/.claude/settings.json</code> hook이 작업 시작/종료를 앱에 알립니다. (위 1번 펫 순환에서 <b>coding</b>/<b>deskSleep</b> 자세로 확인됩니다.)</p>
+    <div class="ba">
+      <div class="pane b"><div class="cap">BEFORE</div><div class="stagebox"><div class="note" style="padding:30px">Claude 작업 여부와<br/>무관하게 동일한 모습</div></div></div>
+      <div class="pane a"><div class="cap">AFTER · WORK × Claude 작업</div><div class="stagebox">
+        <div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font-size:11px;color:var(--text-dim);text-align:center">
+          <div>💻 coding<br/><span style="opacity:.7">집중+Claude작업</span></div>
+          <div>📖 study<br/><span style="opacity:.7">집중+대기</span></div>
+          <div>😴💻 deskSleep<br/><span style="opacity:.7">휴식+Claude작업</span></div>
+          <div>😴 sleep<br/><span style="opacity:.7">휴식+대기</span></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 커밋 타임라인 -->
+  <div class="commits">
+    <h2>커밋 타임라인 (2026-06-25)</h2>
+    <div class="ctl">
+      <div class="citem"><div class="d"><code>feat(camera)</code> 미리보기 닫아도 인식 지속 + 📷 다시 띄우기</div></div>
+      <div class="citem"><div class="d"><code>feat(ui)</code> 설정을 페이드 인/아웃 오버레이로 분리, 메인 간소화</div></div>
+      <div class="citem"><div class="d"><code>feat(pet)</code> 펫이 Claude Code 작업상태 반영(coding/deskSleep)</div></div>
+      <div class="citem"><div class="d"><code>feat(gaze)</code> MediaPipe FaceLandmarker 얼굴·시선 인식 + 카메라 미리보기</div></div>
+      <div class="citem"><div class="d"><code>feat(pet)</code> 떠다니는 클로드 펫(공부/자기/방방) — 고양이 캐릭터 대체</div></div>
+      <div class="citem"><div class="d"><code>feat(focus)</code> 쉬는시간 리셋(연속 10분) + 웹캠 연결 상태 UI</div></div>
+      <div class="citem"><div class="d"><code>feat</code> 하루 초기화 · 쉬는시간 표시 · URL 허용/제한 모드 · 인앱 도움말 · BREAK→WORK 매칭 수정</div></div>
+      <div class="citem"><div class="d"><code>chore(build)</code> electron-builder 포터블 exe</div></div>
+    </div>
+  </div>
+
+  <footer>ADStudyHelper · 자동 생성 변경 기록 · 펫/설정 애니메이션은 이 페이지에서 실제 동작합니다.</footer>
+</div>
+
+<script>
+  // 펫 자세 순환
+  (function(){
+    var stage=document.getElementById('petStage'),label=document.getElementById('petLabel');
+    var poses=[['study','집중(공부)'],['coding','집중 + Claude 코딩'],['deskSleep','휴식 + Claude 작업'],['sleep','휴식(자기)'],['alert','쉬는시간 초과 — 방방!']];
+    var i=0;
+    function tick(){
+      var p=poses[i];stage.className='stage '+p[0];
+      label.innerHTML='<b>'+p[0]+'</b> · '+p[1];
+      i=(i+1)%poses.length;
+    }
+    tick();setInterval(tick,2600);
+  })();
+  // 설정 페이드 데모
+  (function(){
+    var ov=document.getElementById('demoOverlay');
+    document.getElementById('demoOpen').onclick=function(){ov.classList.add('open')};
+    document.getElementById('demoClose').onclick=function(){ov.classList.remove('open')};
+    document.getElementById('demoOverlay').onclick=function(e){if(e.target===ov)ov.classList.remove('open')};
+  })();
+</script>
+</body>
+</html>
