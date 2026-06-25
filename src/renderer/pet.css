@@ -1,0 +1,130 @@
+/* pet.css — 떠다니는 클로드 펫 (study / sleep / alert) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  /* 창 전체를 드래그 핸들로 (프레임 없는 펫 창 이동용) */
+  -webkit-app-region: drag;
+  user-select: none;
+  cursor: grab;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+}
+
+.bouncer {
+  position: relative;
+  transform-origin: 50% 90%;
+  will-change: transform;
+}
+
+.pet { display: block; }
+
+/* ── 자세별 요소 표시 토글 ───────────────────────────── */
+.eyes-closed, .acc-cap, .mouth-o, .excl { display: none; }
+.eyes-open, .mouth-smile, .acc-pencil { display: block; }
+
+/* SLEEP: 감은 눈 + 잠모자, 연필/스마일 숨김 */
+.stage.sleep .eyes-open,
+.stage.sleep .mouth-smile,
+.stage.sleep .acc-pencil { display: none; }
+.stage.sleep .eyes-closed,
+.stage.sleep .acc-cap { display: block; }
+
+/* ALERT: 놀람 표시 + 입 벌림 */
+.stage.alert .excl { display: block; }
+.stage.alert .mouth-smile { display: none; }
+.stage.alert .mouth-o { display: block; }
+
+/* ── 애니메이션 ──────────────────────────────────────── */
+/* STUDY: 잔잔하게 위아래로 까딱 + 몸 살짝 기울임 */
+.stage.study .bouncer { animation: bob 2.4s ease-in-out infinite; }
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-5px) rotate(2deg); }
+}
+
+/* SLEEP: 천천히 숨쉬기 */
+.stage.sleep .bouncer { animation: breathe 3.6s ease-in-out infinite; }
+@keyframes breathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.04) translateY(2px); }
+}
+
+/* ALERT: 방방 뛰기 */
+.stage.alert .bouncer { animation: hop 0.5s cubic-bezier(0.3, 0.7, 0.4, 1) infinite; }
+@keyframes hop {
+  0%   { transform: translateY(0) scaleY(0.92) scaleX(1.06); }
+  30%  { transform: translateY(-30px) scaleY(1.08) scaleX(0.95); }
+  60%  { transform: translateY(0) scaleY(0.9) scaleX(1.08); }
+  100% { transform: translateY(0) scaleY(1) scaleX(1); }
+}
+
+/* 그림자: 뛸 때 같이 줄었다 늘었다 */
+.stage.alert .shadow { animation: shadowPulse 0.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes shadowPulse {
+  0%, 60%, 100% { transform: scaleX(1); opacity: 0.18; }
+  30%           { transform: scaleX(0.6); opacity: 0.10; }
+}
+
+/* ── Zzz (sleep) ─────────────────────────────────────── */
+.zzz { position: absolute; top: 24px; right: 34px; display: none; }
+.stage.sleep .zzz { display: block; }
+.zzz .z {
+  position: absolute;
+  font-weight: 800;
+  color: #6C5CE7;
+  opacity: 0;
+  animation: zfloat 3s ease-in-out infinite;
+}
+.zzz .z1 { font-size: 16px; animation-delay: 0s; }
+.zzz .z2 { font-size: 13px; left: 12px; animation-delay: 0.8s; }
+.zzz .z3 { font-size: 10px; left: 22px; animation-delay: 1.6s; }
+@keyframes zfloat {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.8); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-22px) scale(1.1); }
+}
+
+/* ── 말풍선 (alert) ──────────────────────────────────── */
+.bubble {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.6);
+  background: #fff;
+  color: #B05E45;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 14px;
+  border: 2px solid #CC785C;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px; left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #CC785C;
+}
+.stage.alert .bubble {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}

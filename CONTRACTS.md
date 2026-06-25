@@ -81,14 +81,18 @@ module.exports = {
 // 기본 시드 화이트리스트: { apps: ["Code","WindowsTerminal","cmd"], urlPatterns: ["docs.google.com","github.com","stackoverflow.com"] }
 ```
 
-## src/main/characterWindow.js  (owner: worker-3)
+## src/main/petWindow.js
 ```js
-// frameless/transparent/always-on-top BrowserWindow. src/renderer/character.html 로드.
+// frameless/transparent/always-on-top/draggable BrowserWindow. src/renderer/pet.html 로드.
+// (기존 characterWindow.js의 고양이 팝업을 대체)
 module.exports = {
-  showCharacterAlert(message /* string */),  // 팝업 표시(이미 떠있으면 메시지 갱신)
-  hideCharacter(),
+  showPet(initialFocusState /* 'WORK'|'BREAK' */),  // 펫 창 표시(없으면 생성)
+  hidePet(),
+  setPetState(focusStateValue /* 'WORK'|'BREAK' */), // 공부/자기 자세 반영
+  petAlert(),                                         // 쉬는시간 제한 도달 → 방방 뛰기 + 말풍선
+  _poseForState(state),                               // 순수: 'WORK'→'study', 그외 'sleep'
 };
-// character.html은 IPC 'character:message'로 message를 받아 표시. 닫기 버튼은 ipcRenderer 'character:close' 전송.
+// pet.html은 IPC 'pet:state' { state:'study'|'sleep'|'alert' }를 받아 자세 전환.
 ```
 
 ## src/preload/index.js  (owner: worker-1)
@@ -109,7 +113,7 @@ module.exports = {
 
 ## 통합(owner: worker-1, 마지막)
 src/main/index.js 에서: store→whitelist config 로드 → tracker+chromeBridge 시작 →
-각 입력으로 focusState.setState(evaluate(...)) 호출 → focusState 'breakAlert'에 characterWindow.showCharacterAlert 연결 →
+각 입력으로 focusState.setState(evaluate(...)) 호출 → focusState 'stateChange'에 petWindow.setPetState, 'breakAlert'에 petWindow.petAlert 연결 →
 focusState 'tick'에서 WORK면 store.addWorkSeconds(1) + 대시보드로 tick 전송.
 
 ## Git 커밋 컨벤션 (Conventional Commits — 모든 커밋 필수)

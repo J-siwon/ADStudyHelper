@@ -8,7 +8,7 @@ const chromeBridge     = require('./chromeBridge');
 const { evaluate }     = require('./whitelist');
 const FocusState       = require('./focusState');
 const store            = require('./store');
-const characterWindow  = require('./characterWindow');
+const petWindow        = require('./petWindow');
 const gazeManager      = require('./gazeManager');
 const { createAwayManager } = require('./awayManager');
 const notifier         = require('./notifier');
@@ -99,6 +99,8 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    // 대시보드를 닫으면 항상 위 펫 창도 닫아 window-all-closed가 발생하도록(앱 종료)
+    petWindow.hidePet();
   });
 }
 
@@ -149,9 +151,14 @@ function createTray() {
 function startFocusState() {
   focusState = new FocusState({});  // FOCUS_BREAK_SEC 환경변수 또는 기본 600초
 
-  // BREAK 임계값 초과 → 캐릭터 팝업
+  // WORK/BREAK 전환 → 펫 자세 반영 (공부/자기)
+  focusState.on('stateChange', (state) => {
+    petWindow.setPetState(state);
+  });
+
+  // 쉬는시간 제한(BREAK 임계값) 도달 → 펫이 방방 뛰며 말풍선
   focusState.on('breakAlert', () => {
-    characterWindow.showCharacterAlert('다시 집중! 🐱');
+    petWindow.petAlert();
   });
 
   // 1초마다 tick → WORK면 누적, 렌더러로 전송
@@ -256,6 +263,13 @@ ipcMain.handle('settings:set', async (_event, partial) => {
     gazeConnected = false;
   }
 
+  // petEnabled 변경 시 펫 창 표시/숨김
+  if (updated.petEnabled) {
+    petWindow.showPet(focusState ? focusState.getState() : 'BREAK');
+  } else {
+    petWindow.hidePet();
+  }
+
   return { ok: true };
 });
 
@@ -284,6 +298,11 @@ app.whenReady().then(() => {
   startAwayManager();
   startControlServer(47616);
 
+  // 펫 창 표시 (설정에서 끄지 않았으면 기본 on)
+  if (store.getSettings().petEnabled) {
+    petWindow.showPet(focusState ? focusState.getState() : 'BREAK');
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -296,6 +315,7 @@ app.on('window-all-closed', () => {
     tracker.stopTracking();
     chromeBridge.stopBridge();
     gazeManager.stopGaze();
+    petWindow.hidePet();
     stopControlServer();
     app.quit();
   }

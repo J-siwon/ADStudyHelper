@@ -98,6 +98,11 @@ class FocusState extends EventEmitter {
     }
   }
 
+  // 현재 상태('WORK'|'BREAK')
+  getState() {
+    return this._state;
+  }
+
   // 누적 WORK 초
   getWorkSeconds() {
     return this._workSeconds;

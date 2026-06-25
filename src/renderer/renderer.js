@@ -159,6 +159,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ── Phase 2 설정 패널 ──────────────────────────────────────────────
 
+  const petToggle            = document.getElementById('petToggle');
   const cameraToggle         = document.getElementById('cameraToggle');
   const cameraSourceSelect   = document.getElementById('cameraSourceSelect');
   const cameraDeviceSelect   = document.getElementById('cameraDeviceSelect');
@@ -229,6 +230,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!hasSettingsAPI) return;
     try {
       const s = await window.focusAPI.getSettings();
+      if (petToggle)            petToggle.checked              = s.petEnabled !== false;
       if (cameraToggle)         cameraToggle.checked           = !!s.cameraEnabled;
       if (cameraSourceSelect)   cameraSourceSelect.value       = s.cameraSource || 'webcam';
       if (cameraDeviceSelect)   cameraDeviceSelect.value       = s.cameraDeviceId || '';
@@ -250,6 +252,7 @@ window.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const partial = {
+        petEnabled:       petToggle ? petToggle.checked : true,
         cameraEnabled:    cameraToggle ? cameraToggle.checked : false,
         cameraSource:     cameraSourceSelect ? cameraSourceSelect.value : 'webcam',
         cameraDeviceId:   cameraDeviceSelect ? (cameraDeviceSelect.value || null) : null,

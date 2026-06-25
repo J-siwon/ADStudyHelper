@@ -6,7 +6,7 @@ ADHD 사용자를 위한 집중력 향상 데스크톱 앱 (Electron 기반).
 
 - 활성 창을 2초마다 폴링하여 허용 앱/URL 여부를 판정
 - 집중(WORK) / 휴식(BREAK) 상태를 실시간 대시보드에 표시
-- 연속 휴식이 임계값(기본 10분)을 초과하면 귀여운 고양이 캐릭터 팝업 알림
+- 연속 휴식이 임계값(기본 10분)을 초과하면 떠다니는 클로드 펫이 방방 뛰며 알림 (공부 중엔 공부, 휴식 중엔 자는 모습)
 - 크롬 확장과 WebSocket(포트 47615)으로 연동해 현재 탭 URL 기반 판정
 - 허용 앱 / URL 패턴 목록을 대시보드에서 편집 및 저장
 - 오늘 누적 집중 시간(초) 영속화
@@ -53,7 +53,7 @@ npm run check
 FOCUS_BREAK_SEC=5 npm start
 ```
 
-5초 연속 휴식 상태면 캐릭터 팝업이 트리거됩니다.
+5초 연속 휴식 상태면 펫이 방방 뛰는 알림이 트리거됩니다.
 
 ## 크롬 확장 로드 방법
 
@@ -84,15 +84,16 @@ ADStudyHelper/
 │   │   ├── whitelist.js      # WORK/BREAK 판정
 │   │   ├── focusState.js     # 집중 상태 머신
 │   │   ├── store.js          # 영속화 (electron-store)
-│   │   └── characterWindow.js# 캐릭터 팝업 창
+│   │   └── petWindow.js      # 펫 창 (공부/자기/방방 알림)
 │   ├── preload/
 │   │   ├── index.js          # 대시보드 preload (focusAPI)
-│   │   └── character.js      # 캐릭터 창 preload (characterAPI)
+│   │   └── pet.js            # 펫 창 preload (petAPI)
 │   └── renderer/
 │       ├── index.html        # 대시보드 HTML
 │       ├── renderer.js       # 대시보드 렌더러 스크립트
-│       ├── character.html    # 캐릭터 팝업 HTML
-│       └── character.js      # 캐릭터 팝업 렌더러 스크립트
+│       ├── pet.html          # 펫 창 HTML
+│       ├── pet.js            # 펫 창 렌더러 스크립트
+│       └── pet.css           # 펫 창 스타일/애니메이션
 ├── test/
 │   ├── whitelist.test.js     # whitelist.evaluate 단위 테스트
 │   └── focusState.test.js    # FocusState 단위 테스트
@@ -164,20 +165,21 @@ ADStudyHelper/
 │   │   ├── whitelist.js        # WORK/BREAK 판정
 │   │   ├── focusState.js       # 집중 상태 머신
 │   │   ├── store.js            # 영속화 (electron-store)
-│   │   ├── characterWindow.js  # 캐릭터 팝업 창
+│   │   ├── petWindow.js        # 펫 창 (공부/자기/방방 알림)
 │   │   ├── gazeManager.js      # 웹캠 시선 추적 (Phase 2)
 │   │   ├── awayManager.js      # 자리 비움 감지 (Phase 2)
 │   │   ├── notifier.js         # 폰 알림 전송 (Phase 2)
 │   │   └── controlServer.js    # 폰 제어 HTTP 서버 (Phase 2)
 │   ├── preload/
 │   │   ├── index.js            # 대시보드 preload (focusAPI)
-│   │   ├── character.js        # 캐릭터 창 preload
+│   │   ├── pet.js              # 펫 창 preload (petAPI)
 │   │   └── gaze.js             # 시선 추적 창 preload
 │   └── renderer/
 │       ├── index.html          # 대시보드 HTML
 │       ├── renderer.js         # 대시보드 렌더러
-│       ├── character.html      # 캐릭터 팝업 HTML
-│       ├── character.js        # 캐릭터 팝업 렌더러
+│       ├── pet.html            # 펫 창 HTML
+│       ├── pet.js              # 펫 창 렌더러
+│       ├── pet.css             # 펫 창 스타일/애니메이션
 │       ├── gaze.html           # 시선 추적 창 HTML
 │       └── gaze.js             # 시선 추적 렌더러
 ├── test/

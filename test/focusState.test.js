@@ -37,6 +37,12 @@ describe('FocusState — 기본 동작', () => {
     assert.equal(fs.getWorkSeconds(), 0);
   });
 
+  it('getState()는 현재 상태를 반환 (초기 BREAK)', () => {
+    assert.equal(fs.getState(), 'BREAK');
+    fs.setState('WORK');
+    assert.equal(fs.getState(), 'WORK');
+  });
+
   it('setState("WORK") 후 stateChange 이벤트 발생', async () => {
     const p = waitForEvent(fs, 'stateChange');
     fs.setState('WORK');

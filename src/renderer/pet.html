@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Pet</title>
+  <link rel="stylesheet" href="pet.css" />
+</head>
+<body>
+  <!-- 펫 무대: stage 클래스(study|sleep|alert)에 따라 자세/애니메이션 전환 -->
+  <div class="stage study" id="stage">
+    <!-- 말풍선 (alert 시 표시) -->
+    <div class="bubble" id="bubble">다시 집중! 🔶</div>
+
+    <!-- Zzz (sleep 시 표시) -->
+    <div class="zzz" id="zzz" aria-hidden="true">
+      <span class="z z1">Z</span><span class="z z2">Z</span><span class="z z3">z</span>
+    </div>
+
+    <div class="bouncer" id="bouncer">
+      <svg class="pet" viewBox="0 0 200 200" width="150" height="150" aria-label="클로드 펫">
+        <!-- 그림자 -->
+        <ellipse class="shadow" cx="100" cy="182" rx="46" ry="9" fill="rgba(0,0,0,0.18)" />
+
+        <!-- 클로드 스파크 몸통 (4점 별/반짝임) -->
+        <path class="body" d="M100,28 Q122,78 172,100 Q122,122 100,172 Q78,122 28,100 Q78,78 100,28 Z"
+              fill="#CC785C" stroke="#B05E45" stroke-width="3" stroke-linejoin="round" />
+
+        <!-- 볼터치 -->
+        <circle class="cheek" cx="74" cy="112" r="7" fill="#E8A088" opacity="0.7" />
+        <circle class="cheek" cx="126" cy="112" r="7" fill="#E8A088" opacity="0.7" />
+
+        <!-- 뜬 눈 (study / alert) -->
+        <g class="eyes-open">
+          <circle cx="84" cy="96" r="8" fill="#3a2a22" />
+          <circle cx="116" cy="96" r="8" fill="#3a2a22" />
+          <circle cx="87" cy="93" r="2.6" fill="#fff" />
+          <circle cx="119" cy="93" r="2.6" fill="#fff" />
+        </g>
+        <!-- 감은 눈 (sleep) -->
+        <g class="eyes-closed">
+          <path d="M76,97 Q84,103 92,97" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round" />
+          <path d="M108,97 Q116,103 124,97" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round" />
+        </g>
+
+        <!-- 입 -->
+        <path class="mouth-smile" d="M90,116 Q100,124 110,116" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round" />
+        <ellipse class="mouth-o" cx="100" cy="118" rx="5" ry="6" fill="#7a3b2e" />
+
+        <!-- 공부 소품: 연필 (study) -->
+        <g class="acc-pencil">
+          <rect x="138" y="96" width="34" height="8" rx="2" transform="rotate(35 155 100)" fill="#F4C95D" stroke="#C99B2E" stroke-width="1.5" />
+          <polygon points="170,118 178,126 168,128" fill="#E7A977" />
+        </g>
+
+        <!-- 잠모자 (sleep) -->
+        <g class="acc-cap">
+          <path d="M70,62 Q100,28 138,54 L120,74 Q98,58 80,74 Z" fill="#6C5CE7" stroke="#5546c4" stroke-width="2" stroke-linejoin="round" />
+          <circle cx="140" cy="50" r="7" fill="#fff" />
+        </g>
+
+        <!-- 놀람 표시 (alert) -->
+        <text class="excl" x="150" y="56" font-size="34" font-weight="900" fill="#E5484D" font-family="sans-serif">!</text>
+      </svg>
+    </div>
+  </div>
+  <script src="pet.js"></script>
+</body>
+</html>
