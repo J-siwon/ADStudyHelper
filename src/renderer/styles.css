@@ -96,6 +96,24 @@ html, body {
   color: var(--work-color);
 }
 
+/* 웹캠 상태 배지 */
+.badge-camera {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  transition: background 0.3s, color 0.3s, border-color 0.3s;
+}
+.badge-camera.connected {
+  background: rgba(67, 233, 123, 0.12);
+  border-color: var(--work-color);
+  color: var(--work-color);
+}
+.badge-camera.disconnected {
+  background: rgba(247, 151, 30, 0.12);
+  border-color: var(--break-color);
+  color: var(--break-color);
+}
+
 /* 도움말 버튼 */
 .help-btn {
   background: var(--surface);

@@ -27,6 +27,8 @@ let extensionConnected = false;
 
 // 카메라가 BREAK를 강제하는지 여부 (gazeManager onUpdate 콜백으로 갱신)
 let gazeForceBreak = false;
+// 카메라/스트림이 실제 연결되어 신호를 주는 중인지 (대시보드 웹캠 상태 표시용)
+let gazeConnected = false;
 
 // 단일 인스턴스 락
 const gotLock = app.requestSingleInstanceLock();
@@ -76,6 +78,9 @@ function evaluateAndUpdate() {
     url: lastUrlInfo.url,
     extensionConnected,
     state,
+    // 웹캠 상태: 카메라 추적 on/off + 실제 연결 여부
+    cameraEnabled: !!settings.cameraEnabled,
+    cameraConnected: gazeConnected,
   });
 }
 
@@ -200,8 +205,9 @@ function startGazeTracking() {
     cameraDeviceId: settings.cameraDeviceId || null,
     cameraSource: settings.cameraSource || 'webcam',
     cameraStreamUrl: settings.cameraStreamUrl || '',
-    onUpdate: (forceBreak) => {
+    onUpdate: (forceBreak, connected) => {
       gazeForceBreak = forceBreak;
+      gazeConnected = connected === true;
       evaluateAndUpdate();
     },
   });
@@ -247,6 +253,7 @@ ipcMain.handle('settings:set', async (_event, partial) => {
   } else {
     gazeManager.stopGaze();
     gazeForceBreak = false;
+    gazeConnected = false;
   }
 
   return { ok: true };

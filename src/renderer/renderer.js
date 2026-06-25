@@ -16,6 +16,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const breakTimerEl   = document.getElementById('breakTimer');
   const stateBadgeEl   = document.getElementById('stateBadge');
   const connectionEl   = document.getElementById('connectionBadge');
+  const cameraBadgeEl  = document.getElementById('cameraBadge');
   const currentAppEl   = document.getElementById('currentApp');
   const appsTextarea   = document.getElementById('appsTextarea');
   const urlsTextarea   = document.getElementById('urlsTextarea');
@@ -73,11 +74,13 @@ window.addEventListener('DOMContentLoaded', () => {
     stateBadgeEl.classList.toggle('work', isWork);
     stateBadgeEl.classList.toggle('break', !isWork);
 
-    // 현재 쉬는 시간 — BREAK 상태에서만 표시, WORK 복귀 시 숨김
+    // 누적 쉬는 시간 — 휴식 중엔 실시간 증가, 작업 복귀 후에도 누적값 유지(연속 집중 유지 시 초기화).
     if (breakTimerEl) {
       const bs = breakSeconds || 0;
-      if (!isWork && bs > 0) {
-        breakTimerEl.textContent = `쉬는 시간 ${formatTime(bs)}`;
+      if (bs > 0) {
+        breakTimerEl.textContent = isWork
+          ? `쉬는 시간 ${formatTime(bs)} · 집중 유지 시 초기화`
+          : `쉬는 시간 ${formatTime(bs)}`;
         breakTimerEl.style.display = '';
       } else {
         breakTimerEl.textContent = '';
@@ -105,6 +108,20 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       const mark = s.state === 'WORK' ? '집중' : '휴식';
       currentAppEl.textContent = `현재 활성: ${label} → ${mark}`;
+
+      // 웹캠 상태 배지
+      if (cameraBadgeEl) {
+        cameraBadgeEl.classList.remove('connected', 'disconnected');
+        if (!s.cameraEnabled) {
+          cameraBadgeEl.textContent = '웹캠 꺼짐';
+        } else if (s.cameraConnected) {
+          cameraBadgeEl.textContent = '웹캠 연결됨';
+          cameraBadgeEl.classList.add('connected');
+        } else {
+          cameraBadgeEl.textContent = '웹캠 미연결';
+          cameraBadgeEl.classList.add('disconnected');
+        }
+      }
     });
   }
 

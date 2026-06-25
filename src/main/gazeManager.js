@@ -77,7 +77,8 @@ function startGaze({ cameraDeviceId, cameraSource, cameraStreamUrl, onUpdate }) 
   ipcMain.on('gaze:update', (_event, { facePresent, gazeOnScreen, connected }) => {
     const forceBreak = shouldForceBreak({ facePresent, gazeOnScreen, connected });
     if (typeof onGazeUpdate === 'function') {
-      onGazeUpdate(forceBreak);
+      // 두 번째 인자로 카메라 실제 연결 여부도 전달 (대시보드 웹캠 상태 표시용)
+      onGazeUpdate(forceBreak, connected === true);
     }
   });
 }
