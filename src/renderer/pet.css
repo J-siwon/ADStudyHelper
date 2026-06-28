@@ -37,9 +37,8 @@ html, body {
 
 /* STUDY: 기본(연필+공부) — 추가 토글 없음 */
 
-/* CODING: 연필 대신 노트북+코드, 뜬 눈 유지 */
+/* CODING: 연필 대신 책상(노트북들)+코드기호, 뜬 눈 유지 */
 .stage.coding .acc-pencil { display: none; }
-.stage.coding .acc-laptop,
 .stage.coding .acc-code { display: block; }
 
 /* SLEEP: 감은 눈 + 잠모자, 연필/스마일 숨김 */
@@ -49,12 +48,11 @@ html, body {
 .stage.sleep .eyes-closed,
 .stage.sleep .acc-cap { display: block; }
 
-/* DESKSLEEP: 컴퓨터 앞에서 잠 — 감은 눈 + 노트북 + Zzz (잠모자 없음) */
+/* DESKSLEEP: 컴퓨터 앞에서 잠 — 감은 눈 + 책상(노트북들) + Zzz (잠모자 없음) */
 .stage.deskSleep .eyes-open,
 .stage.deskSleep .mouth-smile,
 .stage.deskSleep .acc-pencil { display: none; }
-.stage.deskSleep .eyes-closed,
-.stage.deskSleep .acc-laptop { display: block; }
+.stage.deskSleep .eyes-closed { display: block; }
 
 /* ALERT: 놀람 표시 + 입 벌림 */
 .stage.alert .excl { display: block; }
@@ -75,9 +73,9 @@ html, body {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50%      { transform: translateY(-2px) rotate(0.6deg); }
 }
-.stage.coding .code-line { animation: codeBlink 1.05s steps(1) infinite; }
-.stage.coding .cl2 { animation-delay: 0.35s; }
-.stage.coding .cl3 { animation-delay: 0.7s; }
+.stage.coding .desk .code-line { animation: codeBlink 1.05s steps(1) infinite; }
+.stage.coding .desk .c2 { animation-delay: 0.35s; }
+.stage.coding .desk .c3 { animation-delay: 0.7s; }
 @keyframes codeBlink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.25; } }
 .stage.coding .acc-code { animation: floatUp 1.6s ease-in-out infinite; }
 @keyframes floatUp {
@@ -160,3 +158,30 @@ html, body {
   opacity: 1;
   transform: translateX(-50%) scale(1);
 }
+
+/* ── 책상: 동시 작동중인 Claude 세션 = 노트북 대수 (개수↑ → 크기↓) ──── */
+.desk {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 6px;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  z-index: 5;            /* 펫보다 앞 (책상에 앉은 느낌) */
+  pointer-events: none;
+}
+.stage.coding .desk,
+.stage.deskSleep .desk { display: flex; }
+
+.laptop {
+  display: block;
+  flex: 0 0 auto;
+  width: 52px;          /* pet.js가 대수에 맞춰 인라인 width로 덮어씀 */
+  height: auto;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+
+/* DESKSLEEP: 화면이 꺼진 듯 코드 흐릿 */
+.stage.deskSleep .desk .code-line { opacity: 0.25; }

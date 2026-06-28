@@ -11,9 +11,10 @@ const os = require('os');
 let manualBreak = false;
 let server = null;
 
-// Claude Code 작업 상태 (hook이 /claude/working·/claude/done 으로 갱신).
-let claudeWorking = false;
-let lastClaudePing = 0;
+// Claude Code 작업 상태 — 세션별(session_id) 작업중 추적.
+// hook이 /claude/working?id=<sid> 으로 핑, /claude/done?id=<sid> 으로 종료.
+// 동시에 작동 중인 세션 수 = claudeSessions.size → 펫이 컴퓨터 대수로 표현.
+const claudeSessions = new Map();   // sessionId -> lastPing(ms)
 let claudeStatusListener = null;
 let claudeWatchdog = null;
 // 신호가 끊겨도(예: Claude 크래시) 일정 시간 뒤 안전하게 idle 처리.
@@ -24,23 +25,39 @@ function getManualBreak() {
   return manualBreak;
 }
 
-/** Returns whether Claude Code is currently working (hook으로 갱신됨). */
+/** Returns whether any Claude Code session is currently working. */
 function getClaudeWorking() {
-  return claudeWorking;
+  return claudeSessions.size > 0;
 }
 
-/** index.js가 펫 자세 갱신을 위해 상태 변경 콜백을 등록. */
+/** Returns how many Claude Code sessions are currently working (펫 컴퓨터 대수). */
+function getClaudeCount() {
+  return claudeSessions.size;
+}
+
+/** index.js가 펫 자세 갱신을 위해 상태 변경 콜백을 등록. cb(working, count). */
 function setClaudeStatusListener(cb) {
   claudeStatusListener = cb;
 }
 
-function setClaudeWorking(working) {
-  const changed = claudeWorking !== working;
-  claudeWorking = working;
-  if (working) lastClaudePing = Date.now();
-  if (changed && typeof claudeStatusListener === 'function') {
-    try { claudeStatusListener(claudeWorking); } catch (e) { /* noop */ }
+function notifyClaudeListener() {
+  if (typeof claudeStatusListener === 'function') {
+    try { claudeStatusListener(getClaudeWorking(), getClaudeCount()); } catch (e) { /* noop */ }
   }
+}
+
+/** 세션 작업중 핑. 신규 세션이면 대수 증가 → 리스너 통지. */
+function claudeWorkingPing(sessionId) {
+  const id = sessionId || 'default';
+  const isNew = !claudeSessions.has(id);
+  claudeSessions.set(id, Date.now());   // lastPing 갱신
+  if (isNew) notifyClaudeListener();     // 대수 변화시에만
+}
+
+/** 세션 종료 핑(Stop). 해당 세션 제거 → 대수 변화시 리스너 통지. */
+function claudeDonePing(sessionId) {
+  const id = sessionId || 'default';
+  if (claudeSessions.delete(id)) notifyClaudeListener();
 }
 
 /** Returns the first non-loopback IPv4 LAN address, or '127.0.0.1' if none found. */
@@ -89,16 +106,19 @@ function handleRequest(port) {
   return function (req, res) {
     const url = req.url.split('?')[0];
 
-    // Claude Code hook 상태 갱신 (GET/POST 무관)
+    // Claude Code hook 상태 갱신 (GET/POST 무관). ?id=<session_id> 로 세션 구분.
     if (url === '/claude/working' || url === '/claude/done') {
-      setClaudeWorking(url === '/claude/working');
+      let sid = '';
+      try { sid = new URL(req.url, 'http://x').searchParams.get('id') || ''; } catch (e) { /* noop */ }
+      if (url === '/claude/working') claudeWorkingPing(sid);
+      else claudeDonePing(sid);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, working: claudeWorking }));
+      res.end(JSON.stringify({ ok: true, working: getClaudeWorking(), count: getClaudeCount() }));
       return;
     }
     if (url === '/claude/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ working: claudeWorking }));
+      res.end(JSON.stringify({ working: getClaudeWorking(), count: getClaudeCount() }));
       return;
     }
 
@@ -140,12 +160,15 @@ function startControlServer(port) {
   server.listen(port, '0.0.0.0', () => {
     console.log(`[controlServer] 폰 제어 서버 시작: http://${getLanIp()}:${port}`);
   });
-  // 워치독: Claude hook 신호가 끊기면 일정 시간 뒤 idle 처리 (크래시 대비)
+  // 워치독: Claude hook 신호가 끊긴 세션은 일정 시간 뒤 제거 (크래시 대비)
   if (!claudeWatchdog) {
     claudeWatchdog = setInterval(() => {
-      if (claudeWorking && Date.now() - lastClaudePing > CLAUDE_TIMEOUT_MS) {
-        setClaudeWorking(false);
+      const now = Date.now();
+      let changed = false;
+      for (const [id, ts] of claudeSessions) {
+        if (now - ts > CLAUDE_TIMEOUT_MS) { claudeSessions.delete(id); changed = true; }
       }
+      if (changed) notifyClaudeListener();
     }, 15 * 1000);
   }
 }
@@ -167,5 +190,6 @@ module.exports = {
   getManualBreak,
   getLanIp,
   getClaudeWorking,
+  getClaudeCount,
   setClaudeStatusListener,
 };

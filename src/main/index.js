@@ -49,7 +49,7 @@ const petWindow        = require('./petWindow');
 const gazeManager      = require('./gazeManager');
 const { createAwayManager } = require('./awayManager');
 const notifier         = require('./notifier');
-const { startControlServer, stopControlServer, getManualBreak, getLanIp, getClaudeWorking, setClaudeStatusListener } = require('./controlServer');
+const { startControlServer, stopControlServer, getManualBreak, getLanIp, getClaudeWorking, getClaudeCount, setClaudeStatusListener } = require('./controlServer');
 
 let mainWindow = null;
 let helpWindow = null;
@@ -186,10 +186,10 @@ function createTray() {
   }
 }
 
-// 현재 집중상태 × Claude 작업여부 → 펫 자세 갱신
+// 현재 집중상태 × Claude 작업여부(+동시 세션 수) → 펫 자세 갱신
 function updatePetPose() {
   if (!focusState) return;
-  petWindow.setPetState(focusState.getState(), getClaudeWorking());
+  petWindow.setPetState(focusState.getState(), getClaudeWorking(), getClaudeCount());
 }
 
 function startFocusState() {
@@ -309,7 +309,7 @@ ipcMain.handle('settings:set', async (_event, partial) => {
 
   // petEnabled 변경 시 펫 창 표시/숨김
   if (updated.petEnabled) {
-    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getClaudeWorking());
+    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getClaudeWorking(), getClaudeCount());
   } else {
     petWindow.hidePet();
   }
@@ -358,7 +358,7 @@ app.whenReady().then(() => {
 
   // 펫 창 표시 (설정에서 끄지 않았으면 기본 on)
   if (store.getSettings().petEnabled) {
-    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getClaudeWorking());
+    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getClaudeWorking(), getClaudeCount());
   }
 
   app.on('activate', () => {

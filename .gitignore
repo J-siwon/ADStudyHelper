@@ -3,3 +3,7 @@ dist/
 out/
 .DS_Store
 *.log
+
+# Claude Code / OMC 로컬 설정·운영 아티팩트
+.claude/
+.omc/

@@ -66,28 +66,29 @@ function createPetWindow() {
   return win;
 }
 
-function sendState(stage) {
+function sendState(stage, count) {
   if (win && !win.isDestroyed()) {
-    win.webContents.send('pet:state', { state: stage });
+    win.webContents.send('pet:state', { state: stage, count: count || 0 });
   }
 }
 
 // 펫 창 표시 (없으면 생성). 초기 자세를 로드 완료 후 전송.
-function showPet(initialFocusState, claudeWorking) {
+function showPet(initialFocusState, claudeWorking, claudeCount) {
   const w = createPetWindow();
   const pose = poseForState(initialFocusState || 'BREAK', !!claudeWorking);
+  const cnt = claudeCount || 0;
   if (w.webContents.isLoading()) {
-    w.webContents.once('did-finish-load', () => sendState(pose));
+    w.webContents.once('did-finish-load', () => sendState(pose, cnt));
   } else {
-    sendState(pose);
+    sendState(pose, cnt);
   }
   if (!w.isVisible()) w.show();
   return w;
 }
 
-// 현재 (집중상태 × Claude 작업여부)를 펫 자세로 반영
-function setPetState(focusStateValue, claudeWorking) {
-  sendState(poseForState(focusStateValue, !!claudeWorking));
+// 현재 (집중상태 × Claude 작업여부 + 동시 세션 수)를 펫 자세로 반영
+function setPetState(focusStateValue, claudeWorking, claudeCount) {
+  sendState(poseForState(focusStateValue, !!claudeWorking), claudeCount || 0);
 }
 
 // 쉬는시간 제한 도달 → 방방 뛰기 + 말풍선

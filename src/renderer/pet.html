@@ -63,19 +63,15 @@
         <!-- 놀람 표시 (alert) -->
         <text class="excl" x="150" y="56" font-size="34" font-weight="900" fill="#E5484D" font-family="sans-serif">!</text>
 
-        <!-- 노트북 (coding / deskSleep) -->
-        <g class="acc-laptop">
-          <rect x="72" y="120" width="56" height="34" rx="3" fill="#3a3f5c" stroke="#23263a" stroke-width="2" />
-          <rect x="76" y="124" width="48" height="26" rx="2" fill="#1e2236" />
-          <rect class="code-line cl1" x="80" y="128" width="20" height="2.6" rx="1" fill="#CC785C" />
-          <rect class="code-line cl2" x="80" y="133.5" width="30" height="2.6" rx="1" fill="#6C8EEF" />
-          <rect class="code-line cl3" x="80" y="139" width="15" height="2.6" rx="1" fill="#43e97b" />
-          <path d="M64,158 L136,158 L142,168 L58,168 Z" fill="#4a4f6e" stroke="#23263a" stroke-width="2" stroke-linejoin="round" />
-        </g>
+        <!-- 노트북은 책상(.desk) 레이어에서 세션 수만큼 그린다 (pet.js) -->
         <!-- 코드 기호 (coding) -->
         <text class="acc-code" x="146" y="62" font-size="19" font-weight="800" fill="#6C8EEF" font-family="monospace">&lt;/&gt;</text>
       </svg>
     </div>
+
+    <!-- 책상: 동시 작동중인 Claude 세션 수만큼 노트북을 그린다(개수↑ → 크기↓).
+         coding/deskSleep 자세에서만 표시. 내용은 pet.js가 채움. -->
+    <div class="desk" id="desk" aria-hidden="true"></div>
   </div>
   <script src="pet.js"></script>
 </body>
