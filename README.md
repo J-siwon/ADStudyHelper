@@ -6,7 +6,8 @@ ADHD 사용자를 위한 집중력 향상 데스크톱 앱 (Electron 기반).
 
 - 활성 창을 2초마다 폴링하여 허용 앱/URL 여부를 판정
 - 집중(WORK) / 휴식(BREAK) 상태를 실시간 대시보드에 표시
-- 연속 휴식이 임계값(기본 10분)을 초과하면 떠다니는 클로드 펫이 방방 뛰며 알림 (공부 중엔 공부, 휴식 중엔 자는 모습)
+- 연속 휴식이 임계값(기본 10분)을 초과하면 떠다니는 코딩 펫이 방방 뛰며 알림 (공부 중엔 공부, 휴식 중엔 자는 모습)
+- Claude Code와 Codex의 동시 작업 세션 수를 감지해 펫의 노트북 개수로 표시
 - 크롬 확장과 WebSocket(포트 47615)으로 연동해 현재 탭 URL 기반 판정
 - 허용 앱 / URL 패턴 목록을 대시보드에서 편집 및 저장
 - 오늘 누적 집중 시간(초) 영속화
@@ -34,6 +35,33 @@ npm start
 ```
 
 대시보드 창이 열립니다. 시스템 트레이 아이콘에서 종료할 수 있습니다.
+
+### Codex 작업 상태 연동
+
+Codex가 작업을 시작하고 마칠 때 ADStudyHelper의 로컬 서버(`127.0.0.1:47616`)로 상태를 보내도록 사용자 훅을 설치합니다. 프롬프트나 응답 내용은 보내지 않고 `session_id`만 사용합니다.
+
+```bash
+npm run codex:install
+```
+
+설치 후 새 Codex 세션을 열고 `/hooks`에서 ADStudyHelper 훅 4개를 검토해 신뢰하세요. Codex는 새로 추가되거나 변경된 비관리형 훅을 사용자가 한 번 신뢰하기 전까지 실행하지 않습니다.
+
+설치 직후 한 번의 읽기 전용 Codex 세션으로 연동을 점검하려면 다음 명령을 실행할 수 있습니다.
+
+```bash
+npm run codex:verify
+```
+
+- `UserPromptSubmit`, `PostToolUse`: 해당 Codex 세션을 작업 중으로 표시
+- `Stop`, `SessionEnd`: 해당 Codex 세션을 대기로 전환
+- 기존 `~/.codex/hooks.json`은 유지하며, 변경 전 같은 폴더에 백업 생성
+- 훅 런타임은 `~/.codex/hooks/adstudyhelper/`에 복사되므로 저장소를 옮겨도 동작
+
+연동 제거:
+
+```bash
+npm run codex:uninstall
+```
 
 ### 단위 테스트
 
@@ -97,6 +125,11 @@ ADStudyHelper/
 ├── test/
 │   ├── whitelist.test.js     # whitelist.evaluate 단위 테스트
 │   └── focusState.test.js    # FocusState 단위 테스트
+├── scripts/
+│   ├── claude-hook.js        # Claude Code 작업 상태 훅
+│   ├── codex-hook.js         # Codex 작업 상태 훅
+│   ├── install-codex-hook.js # Codex 사용자 훅 설치/제거
+│   └── verify-codex-hook.js  # 실제 Codex 세션 연동 점검
 ├── CONTRACTS.md              # 모듈 인터페이스 계약
 └── package.json
 ```

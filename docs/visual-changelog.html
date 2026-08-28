@@ -66,7 +66,7 @@
   /* ── 펫 (실제 pet.css 발췌) ── */
   .pet-tile{width:150px;text-align:center}
   .stage{position:relative;width:150px;height:150px;margin:0 auto}
-  .bouncer{transform-origin:50% 90%}
+  .bouncer{position:relative;transform-origin:50% 90%}
   .pet{display:block}
   .eyes-closed,.acc-cap,.mouth-o,.excl,.acc-laptop,.acc-code{display:none}
   .eyes-open,.mouth-smile,.acc-pencil{display:block}
@@ -90,7 +90,10 @@
   @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04) translateY(2px)}}
   .stage.alert .bouncer{animation:hop .5s cubic-bezier(.3,.7,.4,1) infinite}
   @keyframes hop{0%{transform:translateY(0) scaleY(.92) scaleX(1.06)}30%{transform:translateY(-26px) scaleY(1.08) scaleX(.95)}60%{transform:translateY(0) scaleY(.9) scaleX(1.08)}100%{transform:none}}
-  .zzz{position:absolute;top:18px;right:30px;display:none}
+  .zzz{position:absolute;top:6px;right:24px;display:none;pointer-events:none}
+  .stage.tall{height:200px}
+  .zzz.far{top:8px;right:20px}
+  .gapmark{position:absolute;left:18px;right:18px;top:4px;height:52px;border:1.5px dashed var(--break);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--break);opacity:.8}
   .stage.sleep .zzz,.stage.deskSleep .zzz{display:block}
   .zzz .z{position:absolute;font-weight:800;color:#6C5CE7;opacity:0;animation:zf 3s ease-in-out infinite}
   .z1{font-size:15px}.z2{font-size:12px;left:11px;animation-delay:.8s}.z3{font-size:9px;left:20px;animation-delay:1.6s}
@@ -131,7 +134,7 @@
 <body>
 <div class="wrap">
   <h1>ADStudyHelper — 변경 기록 (Before / After)</h1>
-  <p class="sub">2026-06-24 → 06-25 업데이트 동안 바뀐 주요 화면/동작을 비교합니다. 펫·설정 페이드는 <strong>실제로 움직입니다</strong> (브라우저에서 열어보세요).</p>
+  <p class="sub">2026-06-24 → 07-19 업데이트 동안 바뀐 주요 화면/동작을 비교합니다. 펫·설정 페이드는 <strong>실제로 움직입니다</strong> (브라우저에서 열어보세요).</p>
   <div class="legend"><span class="tag before">BEFORE 구버전</span><span class="tag after">AFTER 현재</span></div>
 
   <!-- 1. 캐릭터 -->
@@ -169,8 +172,8 @@
         <div class="stagebox">
           <div class="pet-tile">
             <div class="stage study" id="petStage">
-              <div class="zzz"><span class="z z1">Z</span><span class="z z2">Z</span><span class="z z3">z</span></div>
               <div class="bouncer">
+                <div class="zzz"><span class="z z1">Z</span><span class="z z2">Z</span><span class="z z3">z</span></div>
                 <svg class="pet" viewBox="0 0 200 200" width="140" height="140" aria-label="클로드 펫">
                   <ellipse cx="100" cy="182" rx="46" ry="9" fill="rgba(0,0,0,.18)"/>
                   <path class="body" d="M100,28 Q122,78 172,100 Q122,122 100,172 Q78,122 28,100 Q78,78 100,28 Z" fill="#CC785C" stroke="#B05E45" stroke-width="3" stroke-linejoin="round"/>
@@ -311,10 +314,65 @@
     </div>
   </div>
 
+  <!-- 6. Zzz 위치 -->
+  <div class="block">
+    <h2>6. 펫 Zzz — 창 꼭대기에 멀리 → 머리 옆에 딱 붙게</h2>
+    <p class="why">구버전: Zzz가 펫 창(200×220) 좌표 기준 우상단에 떠서 자는 펫 머리와 한참 떨어져 보였고, 그 빈 영역까지 펫 창이 차지하는 것처럼 느껴져 클릭에 방해됐음. 현재: Zzz를 <b>펫 몸(bouncer)에 직접 부착</b>해 머리 우상단에서 피어오르고, 숨쉬기 애니메이션도 함께 따라감 + <code>pointer-events:none</code>.</p>
+    <div class="ba">
+      <div class="pane b">
+        <div class="cap">BEFORE · 창 상단에 동떨어진 Zzz</div>
+        <div class="stagebox">
+          <div class="pet-tile">
+            <div class="stage sleep tall">
+              <div class="gapmark">🖱 빈 공간(클릭 방해)</div>
+              <div class="zzz far"><span class="z z1">Z</span><span class="z z2">Z</span><span class="z z3">z</span></div>
+              <div class="bouncer" style="margin-top:76px">
+                <svg class="pet" viewBox="0 0 200 200" width="120" height="120" aria-label="자는 펫">
+                  <ellipse cx="100" cy="182" rx="46" ry="9" fill="rgba(0,0,0,.18)"/>
+                  <path d="M100,28 Q122,78 172,100 Q122,122 100,172 Q78,122 28,100 Q78,78 100,28 Z" fill="#CC785C" stroke="#B05E45" stroke-width="3" stroke-linejoin="round"/>
+                  <circle cx="74" cy="112" r="7" fill="#E8A088" opacity=".7"/><circle cx="126" cy="112" r="7" fill="#E8A088" opacity=".7"/>
+                  <path d="M76,97 Q84,103 92,97" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <path d="M108,97 Q116,103 124,97" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <path d="M90,116 Q100,124 110,116" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <path d="M70,62 Q100,28 138,54 L120,74 Q98,58 80,74 Z" fill="#6C5CE7" stroke="#5546c4" stroke-width="2" stroke-linejoin="round"/><circle cx="140" cy="50" r="7" fill="#fff"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="note">Zzz가 머리에서 멀리 · 위 빈 영역이 클릭을 가로챔</div>
+      </div>
+      <div class="pane a">
+        <div class="cap">AFTER · 머리 옆에서 피어오름</div>
+        <div class="stagebox">
+          <div class="pet-tile">
+            <div class="stage sleep">
+              <div class="bouncer">
+                <div class="zzz"><span class="z z1">Z</span><span class="z z2">Z</span><span class="z z3">z</span></div>
+                <svg class="pet" viewBox="0 0 200 200" width="120" height="120" aria-label="자는 펫">
+                  <ellipse cx="100" cy="182" rx="46" ry="9" fill="rgba(0,0,0,.18)"/>
+                  <path d="M100,28 Q122,78 172,100 Q122,122 100,172 Q78,122 28,100 Q78,78 100,28 Z" fill="#CC785C" stroke="#B05E45" stroke-width="3" stroke-linejoin="round"/>
+                  <circle cx="74" cy="112" r="7" fill="#E8A088" opacity=".7"/><circle cx="126" cy="112" r="7" fill="#E8A088" opacity=".7"/>
+                  <path d="M76,97 Q84,103 92,97" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <path d="M108,97 Q116,103 124,97" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <path d="M90,116 Q100,124 110,116" stroke="#3a2a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <path d="M70,62 Q100,28 138,54 L120,74 Q98,58 80,74 Z" fill="#6C5CE7" stroke="#5546c4" stroke-width="2" stroke-linejoin="round"/><circle cx="140" cy="50" r="7" fill="#fff"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="note">bouncer 기준 top:6/right:26 · 숨쉬기와 함께 움직임 · 클릭 통과</div>
+      </div>
+    </div>
+  </div>
+
   <!-- 커밋 타임라인 -->
   <div class="commits">
-    <h2>커밋 타임라인 (2026-06-25)</h2>
+    <h2>커밋 타임라인</h2>
     <div class="ctl">
+      <div class="citem"><div class="d"><code>fix(pet)</code> Zzz를 펫 머리 옆으로 이동(클릭 방해 해소) — 07-19</div></div>
+      <div class="citem"><div class="d"><code>feat(pet)</code> 동시 작동 Claude 세션 수만큼 노트북 표시 — 07-18</div></div>
       <div class="citem"><div class="d"><code>feat(camera)</code> 미리보기 닫아도 인식 지속 + 📷 다시 띄우기</div></div>
       <div class="citem"><div class="d"><code>feat(ui)</code> 설정을 페이드 인/아웃 오버레이로 분리, 메인 간소화</div></div>
       <div class="citem"><div class="d"><code>feat(pet)</code> 펫이 Claude Code 작업상태 반영(coding/deskSleep)</div></div>

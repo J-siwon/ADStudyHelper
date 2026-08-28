@@ -11,53 +11,82 @@ const os = require('os');
 let manualBreak = false;
 let server = null;
 
-// Claude Code 작업 상태 — 세션별(session_id) 작업중 추적.
-// hook이 /claude/working?id=<sid> 으로 핑, /claude/done?id=<sid> 으로 종료.
-// 동시에 작동 중인 세션 수 = claudeSessions.size → 펫이 컴퓨터 대수로 표현.
-const claudeSessions = new Map();   // sessionId -> lastPing(ms)
-let claudeStatusListener = null;
-let claudeWatchdog = null;
-// 신호가 끊겨도(예: Claude 크래시) 일정 시간 뒤 안전하게 idle 처리.
-const CLAUDE_TIMEOUT_MS = 180 * 1000;
+// Claude Code + Codex 작업 상태 — 공급자와 session_id 조합으로 작업중 추적.
+// hook이 /<provider>/working?id=<sid> 으로 핑, /<provider>/done?id=<sid> 으로 종료.
+// 동시에 작동 중인 전체 세션 수를 펫이 컴퓨터 대수로 표현한다.
+const codingAgentSessions = new Map();   // `${provider}:${sessionId}` -> lastPing(ms)
+let codingAgentStatusListener = null;
+let codingAgentWatchdog = null;
+// 신호가 끊겨도(예: 에이전트 크래시) 일정 시간 뒤 안전하게 idle 처리.
+const CODING_AGENT_TIMEOUT_MS = 180 * 1000;
 
 /** Returns the current manualBreak flag. awayManager polls this to suppress notifications. */
 function getManualBreak() {
   return manualBreak;
 }
 
-/** Returns whether any Claude Code session is currently working. */
-function getClaudeWorking() {
-  return claudeSessions.size > 0;
+function sessionKey(provider, sessionId) {
+  return `${provider}:${sessionId || 'default'}`;
 }
 
-/** Returns how many Claude Code sessions are currently working (펫 컴퓨터 대수). */
-function getClaudeCount() {
-  return claudeSessions.size;
+/** Returns how many sessions are active for one provider, or across all providers. */
+function getCodingAgentCount(provider) {
+  if (!provider) return codingAgentSessions.size;
+  const prefix = `${provider}:`;
+  let count = 0;
+  for (const key of codingAgentSessions.keys()) {
+    if (key.startsWith(prefix)) count += 1;
+  }
+  return count;
 }
 
-/** index.js가 펫 자세 갱신을 위해 상태 변경 콜백을 등록. cb(working, count). */
+function getCodingAgentWorking(provider) {
+  return getCodingAgentCount(provider) > 0;
+}
+
+function getAgentCounts() {
+  return {
+    claude: getCodingAgentCount('claude'),
+    codex: getCodingAgentCount('codex'),
+  };
+}
+
+// 기존 호출부/외부 모듈 호환용 Claude 전용 접근자.
+function getClaudeWorking() { return getCodingAgentWorking('claude'); }
+function getClaudeCount() { return getCodingAgentCount('claude'); }
+function getCodexWorking() { return getCodingAgentWorking('codex'); }
+function getCodexCount() { return getCodingAgentCount('codex'); }
+
+/** index.js가 펫 자세 갱신을 위해 상태 변경 콜백을 등록. cb(working, count, counts). */
+function setCodingAgentStatusListener(cb) {
+  codingAgentStatusListener = cb;
+}
+
+// 기존 이름을 유지해 외부 호출이 깨지지 않게 한다.
 function setClaudeStatusListener(cb) {
-  claudeStatusListener = cb;
+  setCodingAgentStatusListener(cb);
 }
 
-function notifyClaudeListener() {
-  if (typeof claudeStatusListener === 'function') {
-    try { claudeStatusListener(getClaudeWorking(), getClaudeCount()); } catch (e) { /* noop */ }
+function notifyCodingAgentListener() {
+  if (typeof codingAgentStatusListener === 'function') {
+    try {
+      codingAgentStatusListener(getCodingAgentWorking(), getCodingAgentCount(), getAgentCounts());
+    } catch (e) { /* noop */ }
   }
 }
 
 /** 세션 작업중 핑. 신규 세션이면 대수 증가 → 리스너 통지. */
-function claudeWorkingPing(sessionId) {
-  const id = sessionId || 'default';
-  const isNew = !claudeSessions.has(id);
-  claudeSessions.set(id, Date.now());   // lastPing 갱신
-  if (isNew) notifyClaudeListener();     // 대수 변화시에만
+function codingAgentWorkingPing(provider, sessionId) {
+  const key = sessionKey(provider, sessionId);
+  const isNew = !codingAgentSessions.has(key);
+  codingAgentSessions.set(key, Date.now());   // lastPing 갱신
+  if (isNew) notifyCodingAgentListener();      // 대수 변화시에만
 }
 
 /** 세션 종료 핑(Stop). 해당 세션 제거 → 대수 변화시 리스너 통지. */
-function claudeDonePing(sessionId) {
-  const id = sessionId || 'default';
-  if (claudeSessions.delete(id)) notifyClaudeListener();
+function codingAgentDonePing(provider, sessionId) {
+  const key = sessionKey(provider, sessionId);
+  if (codingAgentSessions.delete(key)) notifyCodingAgentListener();
 }
 
 /** Returns the first non-loopback IPv4 LAN address, or '127.0.0.1' if none found. */
@@ -106,19 +135,37 @@ function handleRequest(port) {
   return function (req, res) {
     const url = req.url.split('?')[0];
 
-    // Claude Code hook 상태 갱신 (GET/POST 무관). ?id=<session_id> 로 세션 구분.
-    if (url === '/claude/working' || url === '/claude/done') {
+    // Claude Code/Codex hook 상태 갱신 (GET/POST 무관). 공급자 + session_id로 구분.
+    const agentRoute = url.match(/^\/(claude|codex)\/(working|done|status)$/);
+    if (agentRoute) {
+      const provider = agentRoute[1];
+      const action = agentRoute[2];
       let sid = '';
       try { sid = new URL(req.url, 'http://x').searchParams.get('id') || ''; } catch (e) { /* noop */ }
-      if (url === '/claude/working') claudeWorkingPing(sid);
-      else claudeDonePing(sid);
+      if (action === 'working') codingAgentWorkingPing(provider, sid);
+      if (action === 'done') codingAgentDonePing(provider, sid);
+
+      const providerCount = getCodingAgentCount(provider);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, working: getClaudeWorking(), count: getClaudeCount() }));
+      res.end(JSON.stringify({
+        ok: true,
+        provider,
+        working: providerCount > 0,
+        count: providerCount,
+        totalWorking: getCodingAgentWorking(),
+        totalCount: getCodingAgentCount(),
+        counts: getAgentCounts(),
+      }));
       return;
     }
-    if (url === '/claude/status') {
+
+    if (url === '/agents/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ working: getClaudeWorking(), count: getClaudeCount() }));
+      res.end(JSON.stringify({
+        working: getCodingAgentWorking(),
+        count: getCodingAgentCount(),
+        counts: getAgentCounts(),
+      }));
       return;
     }
 
@@ -160,25 +207,29 @@ function startControlServer(port) {
   server.listen(port, '0.0.0.0', () => {
     console.log(`[controlServer] 폰 제어 서버 시작: http://${getLanIp()}:${port}`);
   });
-  // 워치독: Claude hook 신호가 끊긴 세션은 일정 시간 뒤 제거 (크래시 대비)
-  if (!claudeWatchdog) {
-    claudeWatchdog = setInterval(() => {
+  // 워치독: 에이전트 hook 신호가 끊긴 세션은 일정 시간 뒤 제거 (크래시 대비)
+  if (!codingAgentWatchdog) {
+    codingAgentWatchdog = setInterval(() => {
       const now = Date.now();
       let changed = false;
-      for (const [id, ts] of claudeSessions) {
-        if (now - ts > CLAUDE_TIMEOUT_MS) { claudeSessions.delete(id); changed = true; }
+      for (const [key, ts] of codingAgentSessions) {
+        if (now - ts > CODING_AGENT_TIMEOUT_MS) {
+          codingAgentSessions.delete(key);
+          changed = true;
+        }
       }
-      if (changed) notifyClaudeListener();
+      if (changed) notifyCodingAgentListener();
     }, 15 * 1000);
   }
 }
 
 /** Stop the control HTTP server. manualBreak state is preserved across restarts. */
 function stopControlServer() {
-  if (claudeWatchdog) {
-    clearInterval(claudeWatchdog);
-    claudeWatchdog = null;
+  if (codingAgentWatchdog) {
+    clearInterval(codingAgentWatchdog);
+    codingAgentWatchdog = null;
   }
+  codingAgentSessions.clear();
   if (!server) return;
   server.close();
   server = null;
@@ -189,7 +240,13 @@ module.exports = {
   stopControlServer,
   getManualBreak,
   getLanIp,
+  getCodingAgentWorking,
+  getCodingAgentCount,
+  getAgentCounts,
+  setCodingAgentStatusListener,
   getClaudeWorking,
   getClaudeCount,
+  getCodexWorking,
+  getCodexCount,
   setClaudeStatusListener,
 };

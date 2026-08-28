@@ -49,7 +49,15 @@ const petWindow        = require('./petWindow');
 const gazeManager      = require('./gazeManager');
 const { createAwayManager } = require('./awayManager');
 const notifier         = require('./notifier');
-const { startControlServer, stopControlServer, getManualBreak, getLanIp, getClaudeWorking, getClaudeCount, setClaudeStatusListener } = require('./controlServer');
+const {
+  startControlServer,
+  stopControlServer,
+  getManualBreak,
+  getLanIp,
+  getCodingAgentWorking,
+  getCodingAgentCount,
+  setCodingAgentStatusListener,
+} = require('./controlServer');
 
 let mainWindow = null;
 let helpWindow = null;
@@ -186,16 +194,16 @@ function createTray() {
   }
 }
 
-// 현재 집중상태 × Claude 작업여부(+동시 세션 수) → 펫 자세 갱신
+// 현재 집중상태 × 코딩 에이전트 작업여부(+Claude/Codex 동시 세션 수) → 펫 자세 갱신
 function updatePetPose() {
   if (!focusState) return;
-  petWindow.setPetState(focusState.getState(), getClaudeWorking(), getClaudeCount());
+  petWindow.setPetState(focusState.getState(), getCodingAgentWorking(), getCodingAgentCount());
 }
 
 function startFocusState() {
   focusState = new FocusState({});  // FOCUS_BREAK_SEC 환경변수 또는 기본 600초
 
-  // WORK/BREAK 전환 → 펫 자세 반영 (Claude 작업여부와 조합)
+  // WORK/BREAK 전환 → 펫 자세 반영 (코딩 에이전트 작업여부와 조합)
   focusState.on('stateChange', () => {
     updatePetPose();
   });
@@ -309,7 +317,7 @@ ipcMain.handle('settings:set', async (_event, partial) => {
 
   // petEnabled 변경 시 펫 창 표시/숨김
   if (updated.petEnabled) {
-    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getClaudeWorking(), getClaudeCount());
+    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getCodingAgentWorking(), getCodingAgentCount());
   } else {
     petWindow.hidePet();
   }
@@ -353,12 +361,12 @@ app.whenReady().then(() => {
   startAwayManager();
   startControlServer(47616);
 
-  // Claude Code 작업 상태(hook으로 갱신)가 바뀌면 펫 자세 갱신
-  setClaudeStatusListener(() => updatePetPose());
+  // Claude Code/Codex 작업 상태(hook으로 갱신)가 바뀌면 펫 자세 갱신
+  setCodingAgentStatusListener(() => updatePetPose());
 
   // 펫 창 표시 (설정에서 끄지 않았으면 기본 on)
   if (store.getSettings().petEnabled) {
-    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getClaudeWorking(), getClaudeCount());
+    petWindow.showPet(focusState ? focusState.getState() : 'BREAK', getCodingAgentWorking(), getCodingAgentCount());
   }
 
   app.on('activate', () => {

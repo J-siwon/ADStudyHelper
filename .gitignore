@@ -1,5 +1,6 @@
 node_modules/
-dist/
+dist/*
+!dist/ADStudyHelper-*-portable.exe
 out/
 .DS_Store
 *.log

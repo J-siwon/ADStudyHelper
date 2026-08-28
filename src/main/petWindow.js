@@ -5,17 +5,17 @@ const { BrowserWindow, screen } = require('electron');
 
 let win = null;
 
-// (내 집중상태 WORK/BREAK) × (Claude Code 작업중 여부) → 펫 지속 자세 매핑
+// (내 집중상태 WORK/BREAK) × (Claude Code/Codex 작업중 여부) → 펫 지속 자세 매핑
 // (순수 함수, 단독 테스트 노출)
-//   WORK  + Claude 작업중 → coding    (코딩하는 모습)
-//   WORK  + Claude 대기   → study     (기본 공부 모습)
-//   BREAK + Claude 작업중 → deskSleep (컴퓨터 앞에서 자는 모습)
-//   BREAK + Claude 대기   → sleep     (자는 모습)
-function poseForState(state, claudeWorking) {
+//   WORK  + 에이전트 작업중 → coding    (코딩하는 모습)
+//   WORK  + 에이전트 대기   → study     (기본 공부 모습)
+//   BREAK + 에이전트 작업중 → deskSleep (컴퓨터 앞에서 자는 모습)
+//   BREAK + 에이전트 대기   → sleep     (자는 모습)
+function poseForState(state, agentWorking) {
   if (state === 'WORK') {
-    return claudeWorking ? 'coding' : 'study';
+    return agentWorking ? 'coding' : 'study';
   }
-  return claudeWorking ? 'deskSleep' : 'sleep';
+  return agentWorking ? 'deskSleep' : 'sleep';
 }
 
 const PET_WIDTH = 200;
@@ -73,10 +73,10 @@ function sendState(stage, count) {
 }
 
 // 펫 창 표시 (없으면 생성). 초기 자세를 로드 완료 후 전송.
-function showPet(initialFocusState, claudeWorking, claudeCount) {
+function showPet(initialFocusState, agentWorking, agentCount) {
   const w = createPetWindow();
-  const pose = poseForState(initialFocusState || 'BREAK', !!claudeWorking);
-  const cnt = claudeCount || 0;
+  const pose = poseForState(initialFocusState || 'BREAK', !!agentWorking);
+  const cnt = agentCount || 0;
   if (w.webContents.isLoading()) {
     w.webContents.once('did-finish-load', () => sendState(pose, cnt));
   } else {
@@ -86,9 +86,9 @@ function showPet(initialFocusState, claudeWorking, claudeCount) {
   return w;
 }
 
-// 현재 (집중상태 × Claude 작업여부 + 동시 세션 수)를 펫 자세로 반영
-function setPetState(focusStateValue, claudeWorking, claudeCount) {
-  sendState(poseForState(focusStateValue, !!claudeWorking), claudeCount || 0);
+// 현재 (집중상태 × 코딩 에이전트 작업여부 + 동시 세션 수)를 펫 자세로 반영
+function setPetState(focusStateValue, agentWorking, agentCount) {
+  sendState(poseForState(focusStateValue, !!agentWorking), agentCount || 0);
 }
 
 // 쉬는시간 제한 도달 → 방방 뛰기 + 말풍선

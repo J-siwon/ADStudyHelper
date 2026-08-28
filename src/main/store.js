@@ -20,7 +20,7 @@ const DEFAULT_SETTINGS = {
   ntfyTopic: '',              // ntfy.sh 토픽 (빈 문자열 = no-op)
   awayThresholdMin: 10,       // 자리 비움 알림 임계값(분)
   telegram: null,             // { botToken: string, chatId: string } | null
-  petEnabled: true,           // 떠다니는 클로드 펫 창 표시 on/off
+  petEnabled: true,           // 떠다니는 코딩 펫 창 표시 on/off
 };
 
 // partial 설정을 기본값에 얕게 병합 — 순수 함수이므로 단독 테스트 가능

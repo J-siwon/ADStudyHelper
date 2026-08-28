@@ -1,4 +1,4 @@
-/* pet.css — 떠다니는 클로드 펫 (study / sleep / alert) */
+/* pet.css — 떠다니는 코딩 펫 (study / sleep / alert) */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -108,7 +108,8 @@ html, body {
 }
 
 /* ── Zzz (sleep) ─────────────────────────────────────── */
-.zzz { position: absolute; top: 24px; right: 34px; display: none; }
+/* bouncer(펫) 기준으로 머리 우상단에 붙임 — 창 상단에 멀리 뜨지 않게 */
+.zzz { position: absolute; top: 6px; right: 26px; display: none; pointer-events: none; }
 .stage.sleep .zzz,
 .stage.deskSleep .zzz { display: block; }
 .zzz .z {
@@ -159,7 +160,7 @@ html, body {
   transform: translateX(-50%) scale(1);
 }
 
-/* ── 책상: 동시 작동중인 Claude 세션 = 노트북 대수 (개수↑ → 크기↓) ──── */
+/* ── 책상: 동시 작동중인 Claude/Codex 세션 = 노트북 대수 (개수↑ → 크기↓) ──── */
 .desk {
   position: absolute;
   left: 4px;

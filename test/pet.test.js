@@ -4,22 +4,22 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const petWindow = require('../src/main/petWindow.js');
 
-describe('petWindow._poseForState — (집중상태 × Claude 작업여부) → 펫 자세', () => {
-  it('WORK + Claude 대기 → study', () => {
+describe('petWindow._poseForState — (집중상태 × 코딩 에이전트 작업여부) → 펫 자세', () => {
+  it('WORK + 에이전트 대기 → study', () => {
     assert.equal(petWindow._poseForState('WORK', false), 'study');
     assert.equal(petWindow._poseForState('WORK'), 'study'); // 인자 생략 = 대기
   });
 
-  it('WORK + Claude 작업중 → coding', () => {
+  it('WORK + 에이전트 작업중 → coding', () => {
     assert.equal(petWindow._poseForState('WORK', true), 'coding');
   });
 
-  it('BREAK + Claude 대기 → sleep', () => {
+  it('BREAK + 에이전트 대기 → sleep', () => {
     assert.equal(petWindow._poseForState('BREAK', false), 'sleep');
     assert.equal(petWindow._poseForState('BREAK'), 'sleep');
   });
 
-  it('BREAK + Claude 작업중 → deskSleep', () => {
+  it('BREAK + 에이전트 작업중 → deskSleep', () => {
     assert.equal(petWindow._poseForState('BREAK', true), 'deskSleep');
   });
 

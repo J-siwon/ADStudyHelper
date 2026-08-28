@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Claude Pet</title>
+  <title>Coding Agent Pet</title>
   <link rel="stylesheet" href="pet.css" />
 </head>
 <body>
@@ -13,13 +13,12 @@
     <!-- 말풍선 (alert 시 표시) -->
     <div class="bubble" id="bubble">다시 집중! 🔶</div>
 
-    <!-- Zzz (sleep 시 표시) -->
-    <div class="zzz" id="zzz" aria-hidden="true">
-      <span class="z z1">Z</span><span class="z z2">Z</span><span class="z z3">z</span>
-    </div>
-
     <div class="bouncer" id="bouncer">
-      <svg class="pet" viewBox="0 0 200 200" width="150" height="150" aria-label="클로드 펫">
+      <!-- Zzz (sleep 시 표시) — 펫 머리 옆에 붙어 함께 움직임 -->
+      <div class="zzz" id="zzz" aria-hidden="true">
+        <span class="z z1">Z</span><span class="z z2">Z</span><span class="z z3">z</span>
+      </div>
+      <svg class="pet" viewBox="0 0 200 200" width="150" height="150" aria-label="코딩 펫">
         <!-- 그림자 -->
         <ellipse class="shadow" cx="100" cy="182" rx="46" ry="9" fill="rgba(0,0,0,0.18)" />
 
@@ -69,7 +68,7 @@
       </svg>
     </div>
 
-    <!-- 책상: 동시 작동중인 Claude 세션 수만큼 노트북을 그린다(개수↑ → 크기↓).
+    <!-- 책상: 동시 작동중인 Claude Code + Codex 세션 수만큼 노트북을 그린다(개수↑ → 크기↓).
          coding/deskSleep 자세에서만 표시. 내용은 pet.js가 채움. -->
     <div class="desk" id="desk" aria-hidden="true"></div>
   </div>

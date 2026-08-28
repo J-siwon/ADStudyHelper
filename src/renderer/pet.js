@@ -1,7 +1,7 @@
 'use strict';
 
 // pet.js — 펫 창 렌더러. main에서 받은 상태로 자세(coding|study|deskSleep|sleep|alert) 전환.
-// data.count = 동시 작동중인 Claude 세션 수 → 책상에 노트북을 그 수만큼 그린다(개수↑ → 크기↓).
+// data.count = 동시 작동중인 Claude Code + Codex 세션 수 → 책상에 노트북을 그 수만큼 그린다(개수↑ → 크기↓).
 // alert(쉬는시간 제한 도달)는 일시적 오버레이라 일정 시간 후 직전 기본자세로 복귀.
 
 const ALERT_DURATION_MS = 6000;
