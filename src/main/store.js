@@ -2,6 +2,7 @@
 
 const Store = require('electron-store');
 const crypto = require('crypto');
+const { createDefaultLearningState, normalizeLearningState } = require('./learning');
 
 // 기본 시드 화이트리스트
 // 앱 키워드는 get-windows의 owner.name(친근한 표시 이름)에 "부분 포함"으로 매칭된다.
@@ -28,6 +29,7 @@ const DEFAULT_SETTINGS = {
   phoneActualUseThresholdSec: 60,  // 실제 사용 모드의 Screen Time 임계값
   phoneAlertMessage: '집중해라!!!',
   phoneRestSchedules: [],          // [{ id, name, enabled, days:[0..6], start:'HH:mm', end:'HH:mm' }]
+  learningChatProvider: 'chatgpt', // 외부 학습 채팅: 'chatgpt' | 'claude'
 };
 
 // partial 설정을 기본값에 얕게 병합 — 순수 함수이므로 단독 테스트 가능
@@ -80,6 +82,16 @@ module.exports = {
     const current = store.get('settings', {});
     const next = mergeSettings(current, partial);
     store.set('settings', next);
+  },
+
+  getLearningState() {
+    return normalizeLearningState(store.get('learning', createDefaultLearningState()));
+  },
+
+  setLearningState(state) {
+    const normalized = normalizeLearningState(state);
+    store.set('learning', normalized);
+    return normalized;
   },
 
   // iPhone 앱이 로컬 API에 접속할 때 사용하는 설치별 비밀 토큰.

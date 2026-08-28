@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, powerMonitor, protocol } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, powerMonitor, protocol, clipboard, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -50,6 +50,8 @@ const gazeManager      = require('./gazeManager');
 const { createAwayManager } = require('./awayManager');
 const notifier         = require('./notifier');
 const { createPhoneFocusManager, normalizePhoneConfig } = require('./phoneFocusManager');
+const learning = require('./learning');
+const learningAssessment = require('./learning-assessment');
 const {
   startControlServer,
   stopControlServer,
@@ -66,6 +68,23 @@ let tray = null;
 let focusState = null;
 let awayManager = null;
 let phoneFocusManager = null;
+
+const LEARNING_CHAT_URLS = Object.freeze({
+  chatgpt: 'https://chatgpt.com/',
+  claude: 'https://claude.ai/',
+});
+
+function getLearningChatProvider() {
+  const provider = store.getSettings().learningChatProvider;
+  return Object.prototype.hasOwnProperty.call(LEARNING_CHAT_URLS, provider) ? provider : 'chatgpt';
+}
+
+async function openLearningChat() {
+  const provider = getLearningChatProvider();
+  const url = LEARNING_CHAT_URLS[provider];
+  await shell.openExternal(url);
+  return { ok: true, provider, url };
+}
 
 // 폴링 간 최신 창/URL 상태를 보관
 let lastWindowInfo     = { app: '', title: '', isChrome: false };
@@ -154,8 +173,10 @@ function evaluateAndUpdate() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1180,
+    height: 760,
+    minWidth: 760,
+    minHeight: 560,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -391,6 +412,149 @@ ipcMain.handle('settings:set', async (_event, partial) => {
   }
 
   return { ok: true };
+});
+
+function getLearningSnapshot(state = store.getLearningState()) {
+  return {
+    ...learning.getSnapshot(state),
+    chatProvider: getLearningChatProvider(),
+    assessmentCapability: learningAssessment.getAssessmentCapability(),
+  };
+}
+
+// 학습 런타임 IPC. 외부 채팅 URL은 main의 고정 allowlist만 사용한다.
+ipcMain.handle('learning:getSnapshot', async () => getLearningSnapshot());
+
+ipcMain.handle('learning:startChapter', async (_event, chapterId) => {
+  const prompt = learning.buildLearningPrompt(chapterId);
+  clipboard.writeText(prompt);
+  const next = learning.startChapter(store.getLearningState(), chapterId);
+  store.setLearningState(next);
+  const opened = await openLearningChat();
+  return {
+    ...getLearningSnapshot(next),
+    chatProvider: opened.provider,
+    promptCopied: true,
+  };
+});
+
+ipcMain.handle('learning:updateChecklist', async (_event, chapterId, patch) => {
+  const next = learning.updateChecklist(store.getLearningState(), chapterId, patch);
+  store.setLearningState(next);
+  return getLearningSnapshot(next);
+});
+
+ipcMain.handle('learning:cancelChapter', async (_event, chapterId) => {
+  const next = learning.cancelChapter(store.getLearningState(), chapterId);
+  store.setLearningState(next);
+  return getLearningSnapshot(next);
+});
+
+ipcMain.handle('learning:copyPrompt', async (_event, chapterId) => {
+  clipboard.writeText(learning.buildLearningPrompt(chapterId));
+  return { ok: true };
+});
+
+ipcMain.handle('learning:openChat', async () => openLearningChat());
+
+ipcMain.handle('learning:completeChapter', async (_event, chapterId, summary) => {
+  const next = learning.completeChapter(store.getLearningState(), chapterId, summary);
+  store.setLearningState(next);
+  return getLearningSnapshot(next);
+});
+
+ipcMain.handle('learning:preparePriorAssessment', async (_event, chapterId, sourceText) => {
+  const request = learningAssessment.createAssessmentRequest(chapterId, sourceText);
+  clipboard.writeText(learningAssessment.MANUAL_HANDOFF_ADAPTER.createPrompt(request));
+  const opened = await openLearningChat();
+  return {
+    ok: true,
+    adapter: learningAssessment.getAssessmentCapability(),
+    provider: opened.provider,
+    promptCopied: true,
+  };
+});
+
+ipcMain.handle('learning:previewPriorAssessment', async (_event, chapterId, sourceText, rawResponse) => {
+  const request = learningAssessment.createAssessmentRequest(chapterId, sourceText);
+  return learningAssessment.MANUAL_HANDOFF_ADAPTER.parseResponse(request, rawResponse);
+});
+
+ipcMain.handle('learning:applyPriorAssessment', async (_event, chapterId, assessment, selection) => {
+  // Renderer에서 돌아온 값은 신뢰하지 않고 표준 판정 계약으로 다시 정규화한다.
+  const request = learningAssessment.createAssessmentRequest(chapterId, 'validated renderer assessment');
+  const normalizedAssessment = learningAssessment.normalizeAssessmentResult(
+    request,
+    assessment,
+    learningAssessment.MANUAL_HANDOFF_ADAPTER.id
+  );
+  const next = learning.applyPriorLearningAssessment(
+    store.getLearningState(),
+    chapterId,
+    normalizedAssessment,
+    selection
+  );
+  store.setLearningState(next);
+  return getLearningSnapshot(next);
+});
+
+ipcMain.handle('learning:prepareCurriculumAssessment', async (_event, sourceText) => {
+  const request = learningAssessment.createCurriculumAssessmentRequest(sourceText);
+  clipboard.writeText(learningAssessment.MANUAL_CURRICULUM_ADAPTER.createPrompt(request));
+  const opened = await openLearningChat();
+  return { ok: true, provider: opened.provider, promptCopied: true };
+});
+
+ipcMain.handle('learning:previewCurriculumAssessment', async (_event, sourceText, rawResponse) => {
+  const request = learningAssessment.createCurriculumAssessmentRequest(sourceText);
+  return learningAssessment.MANUAL_CURRICULUM_ADAPTER.parseResponse(request, rawResponse);
+});
+
+ipcMain.handle('learning:applyCurriculumCoverage', async (_event, assessment, selectedChapterIds) => {
+  const request = learningAssessment.createCurriculumAssessmentRequest('validated renderer curriculum assessment');
+  const normalizedAssessment = learningAssessment.normalizeCurriculumAssessmentResult(
+    request,
+    assessment,
+    learningAssessment.MANUAL_CURRICULUM_ADAPTER.id
+  );
+  const next = learning.applyCurriculumCoverage(store.getLearningState(), normalizedAssessment, selectedChapterIds);
+  store.setLearningState(next);
+  return getLearningSnapshot(next);
+});
+
+ipcMain.handle('learning:prepareCurriculumDetailAssessment', async (_event, sourceText, chapterIds) => {
+  const request = learningAssessment.createCurriculumDetailRequest(sourceText, chapterIds);
+  clipboard.writeText(learningAssessment.MANUAL_CURRICULUM_DETAIL_ADAPTER.createPrompt(request));
+  const opened = await openLearningChat();
+  return { ok: true, provider: opened.provider, promptCopied: true, chapterCount: request.chapters.length };
+});
+
+ipcMain.handle('learning:previewCurriculumDetailAssessment', async (_event, sourceText, chapterIds, rawResponse) => {
+  const request = learningAssessment.createCurriculumDetailRequest(sourceText, chapterIds);
+  return learningAssessment.MANUAL_CURRICULUM_DETAIL_ADAPTER.parseResponse(request, rawResponse);
+});
+
+ipcMain.handle('learning:applyCurriculumDetailAssessment', async (_event, assessmentBatch, selections) => {
+  const chapterIds = assessmentBatch && Array.isArray(assessmentBatch.chapterAssessments)
+    ? assessmentBatch.chapterAssessments.map((item) => item && item.chapterId).filter(Boolean)
+    : [];
+  const request = learningAssessment.createCurriculumDetailRequest('validated renderer detail assessment', chapterIds);
+  const normalizedBatch = learningAssessment.normalizeCurriculumDetailResult(
+    request,
+    assessmentBatch,
+    learningAssessment.MANUAL_CURRICULUM_DETAIL_ADAPTER.id
+  );
+  const next = learning.applyCurriculumDetailAssessments(store.getLearningState(), normalizedBatch, selections);
+  store.setLearningState(next);
+  return getLearningSnapshot(next);
+});
+
+ipcMain.handle('learning:setProvider', async (_event, provider) => {
+  if (!Object.prototype.hasOwnProperty.call(LEARNING_CHAT_URLS, provider)) {
+    throw new Error('invalid_chat_provider');
+  }
+  store.setSettings({ learningChatProvider: provider });
+  return { ok: true, provider };
 });
 
 // 도움말 창 열기

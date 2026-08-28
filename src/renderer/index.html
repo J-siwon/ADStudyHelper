@@ -4,32 +4,202 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ADStudyHelper — 집중 대시보드</title>
+  <title>ADStudyHelper — 게임 개발 학습</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- 메인: 오늘 집중 시간 + 현재 활성만 -->
-  <div class="dashboard">
-    <header class="header">
-      <h1 class="app-title">ADStudyHelper</h1>
-      <div class="badges">
-        <span class="badge badge-state break" id="stateBadge">BREAK</span>
-        <span class="badge badge-connection" id="connectionBadge">확장 미연결</span>
-        <span class="badge badge-camera" id="cameraBadge">웹캠 꺼짐</span>
-        <span class="badge badge-connection" id="phoneBadge">iPhone 꺼짐</span>
-        <button class="icon-btn" id="cameraPreviewBtn" title="카메라 미리보기 열기" style="display:none">📷 미리보기</button>
-        <button class="icon-btn" id="settingsBtn" title="설정">⚙ 설정</button>
-        <button class="icon-btn" id="helpBtn" title="사용 방법">❓ 도움말</button>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <span class="brand-mark">AD</span>
+        <div>
+          <h1 class="app-title">Study Helper</h1>
+          <p class="brand-subtitle">Game Developer Path</p>
+        </div>
       </div>
-    </header>
 
-    <main class="main">
-      <div class="timer-label">오늘 집중 시간</div>
-      <div class="timer" id="timer">00:00:00</div>
-      <div class="break-timer" id="breakTimer" style="display:none"></div>
-      <div class="current-app" id="currentApp">현재 활성: —</div>
+      <nav class="side-nav" aria-label="주요 화면">
+        <button class="nav-item active" data-view-target="home"><span>⌂</span> 홈</button>
+        <button class="nav-item" data-view-target="curriculum"><span>◇</span> 커리큘럼</button>
+        <button class="nav-item" data-view-target="focus"><span>◷</span> 집중 도구</button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+      <button class="focus-mini-card" id="focusMiniCard" type="button">
+        <div class="focus-mini-top">
+          <span class="timer-label">오늘 집중</span>
+          <span class="badge badge-state break" id="stateBadge">BREAK</span>
+        </div>
+        <strong class="timer timer--compact" id="timer">00:00:00</strong>
+        <span class="break-timer break-timer--compact is-hidden" id="breakTimer"></span>
+      </button>
+      <button class="nav-item nav-item--settings" id="settingsBtn" type="button"><span>⚙</span> 설정</button>
+    </aside>
+
+    <main class="workspace">
+      <section class="app-view active" data-view="home">
+        <header class="page-header">
+          <div><p class="eyebrow">오늘의 학습</p><h2>배운 것을 설명할 수 있을 때까지</h2></div>
+          <span class="date-label" id="todayLabel"></span>
+        </header>
+
+        <div class="hero-card">
+          <div class="hero-copy">
+            <span class="status-pill" id="homeChapterStatus">READY</span>
+            <p class="breadcrumb" id="homeChapterBreadcrumb">Computer Science / Memory</p>
+            <h3 id="homeChapterTitle">Memory Alignment</h3>
+            <p id="homeChapterMessage">정답을 보기 전에 먼저 예측하고, 왜 그런지 설명해 보세요.</p>
+            <button class="primary-btn" id="homePrimaryBtn" type="button">챕터 살펴보기</button>
+          </div>
+          <div class="progress-ring" id="homeProgressRing"><span id="homeProgressText">0%</span></div>
+        </div>
+
+        <div class="home-grid">
+          <article class="summary-card">
+            <div class="card-heading"><div><p class="eyebrow">Review</p><h3>복습 일정</h3></div><span class="count-badge" id="reviewDueCount">0</span></div>
+            <div id="reviewList" class="review-list"><p class="empty-state">챕터를 완료하면 복습 일정이 등록됩니다.</p></div>
+          </article>
+          <article class="summary-card">
+            <div class="card-heading"><div><p class="eyebrow">Curriculum</p><h3>제공 콘텐츠 진행도</h3></div><strong id="releasedProgressText">0 / 1</strong></div>
+            <div class="linear-progress"><span id="releasedProgressBar"></span></div>
+            <p class="muted">현재 제공되는 전체 챕터의 실제 완료 상태를 계산합니다.</p>
+            <div class="summary-actions"><button class="text-btn" data-view-target="curriculum" type="button">전체 커리큘럼 보기 →</button><button class="text-btn" id="homeCurriculumImportBtn" type="button">전체 학습 이력 불러오기</button></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="app-view" data-view="curriculum">
+        <header class="page-header"><div><p class="eyebrow">Learning Path</p><h2>전체 커리큘럼</h2><p class="page-description">모든 챕터를 자유롭게 선택할 수 있으며 선행 항목은 학습 순서 안내로 사용됩니다.</p></div><button class="primary-btn" id="curriculumImportBtn" type="button">전체 학습 이력 불러오기</button></header>
+        <div class="curriculum-grid" id="curriculumGrid"></div>
+      </section>
+
+      <section class="app-view" data-view="chapter">
+        <button class="back-btn" data-view-target="curriculum" type="button">← 커리큘럼</button>
+        <div class="chapter-layout">
+          <article class="chapter-main-card">
+            <p class="breadcrumb" id="chapterBreadcrumb">Computer Science / Memory</p>
+            <div class="chapter-title-row"><h2 id="chapterTitle">Memory Alignment</h2><span class="status-pill" id="chapterStatus">READY</span></div>
+            <p class="chapter-description" id="chapterDescription">데이터가 메모리 경계에 배치되는 이유와 구조체 padding을 직접 추론합니다.</p>
+            <div class="chapter-section"><h3>학습 목표</h3><ul class="objective-preview" id="objectivePreview"></ul></div>
+            <div class="chapter-actions">
+              <button class="primary-btn" id="chapterStartBtn" type="button">챕터 시작</button>
+              <button class="secondary-btn" id="priorLearningBtn" type="button">이전 학습 불러오기</button>
+              <span class="action-status" id="chapterActionStatus"></span>
+            </div>
+          </article>
+          <aside class="prerequisite-card"><p class="eyebrow">Prerequisite</p><h3>선행 챕터</h3><div id="prerequisiteList"></div><p class="seed-notice">선행 항목은 권장 순서이며 현재 챕터 시작을 막지 않습니다.</p></aside>
+        </div>
+      </section>
+
+      <section class="app-view" data-view="session">
+        <button class="back-btn" data-view-target="home" type="button">← 홈</button>
+        <header class="session-header"><div><p class="breadcrumb" id="sessionBreadcrumb">현재 학습 / Memory</p><h2 id="sessionChapterTitle">Memory Alignment</h2></div><span class="status-pill learning">LEARNING</span></header>
+        <div class="handoff-card"><div><p class="eyebrow">External AI Session</p><h3 id="providerHeading">ChatGPT에서 학습 중</h3><p>챕터별 맞춤 프롬프트로 학습합니다. 앱은 외부 대화 내용을 자동으로 읽지 않습니다.</p></div><div class="handoff-actions"><button class="secondary-btn" id="copyPromptBtn" type="button">프롬프트 다시 복사</button><button class="primary-btn" id="openChatBtn" type="button">채팅 사이트 열기 ↗</button></div><span class="action-status" id="sessionActionStatus"></span></div>
+        <div class="session-grid"><article class="checklist-card"><div class="card-heading"><div><p class="eyebrow">Stage</p><h3>학습 단계</h3></div><strong id="stageCount">0 / 6</strong></div><div id="stageChecklist" class="checklist"></div></article><article class="checklist-card"><div class="card-heading"><div><p class="eyebrow">Objectives</p><h3>학습 목표</h3></div><strong id="objectiveCount">0 / 5</strong></div><div id="objectiveChecklist" class="checklist"></div></article></div>
+        <div class="complete-bar"><div><strong>모든 단계를 직접 확인했나요?</strong><p>최종 완료 행동은 사용자가 직접 합니다.</p></div><div class="session-final-actions"><button class="secondary-btn danger-btn" id="cancelChapterBtn" type="button">학습 취소</button><button class="primary-btn" id="completeChapterBtn" type="button" disabled>챕터 완료</button></div></div>
+      </section>
+
+      <section class="app-view" data-view="focus">
+        <header class="page-header"><div><p class="eyebrow">Focus Tools</p><h2>집중 도구</h2><p class="page-description">기존 집중 판정과 알림 기능은 그대로 백그라운드에서 동작합니다.</p></div><div class="badges"><span class="badge badge-connection" id="connectionBadge">확장 미연결</span><span class="badge badge-camera" id="cameraBadge">웹캠 꺼짐</span><span class="badge badge-connection" id="phoneBadge">iPhone 꺼짐</span></div></header>
+        <div class="focus-dashboard-card"><div class="timer-label">오늘 집중 시간</div><div class="timer" id="focusTimerDetailed">00:00:00</div><div class="current-app" id="currentApp">현재 활성: —</div><div class="focus-actions"><button class="icon-btn is-hidden" id="cameraPreviewBtn" title="카메라 미리보기 열기">📷 미리보기</button><button class="icon-btn" id="helpBtn" title="사용 방법">❓ 도움말</button></div></div>
+      </section>
     </main>
   </div>
+
+  <dialog class="completion-dialog" id="completionDialog">
+    <form method="dialog" class="completion-form">
+      <p class="eyebrow">Chapter Complete</p><h2>학습을 완료할까요?</h2><p class="muted">외부 AI가 만든 요약이 있다면 선택적으로 붙여넣으세요.</p>
+      <textarea id="sessionSummaryInput" maxlength="20000" placeholder="## 오늘 배운 것&#10;- ..."></textarea>
+      <div class="dialog-actions"><button class="secondary-btn" value="cancel">취소</button><button class="primary-btn" id="confirmCompleteBtn" value="default">완료 및 복습 등록</button></div>
+      <span class="action-status" id="completionStatus"></span>
+    </form>
+  </dialog>
+
+  <dialog class="completion-dialog" id="cancelLearningDialog">
+    <form method="dialog" class="completion-form">
+      <p class="eyebrow">Cancel Learning</p><h2>현재 학습을 취소할까요?</h2><p class="muted">체크한 단계와 목표는 진행 중 상태로 보존됩니다. 체크한 내용이 없다면 학습 가능 상태로 돌아갑니다.</p>
+      <div class="dialog-actions"><button class="secondary-btn" value="cancel">계속 공부하기</button><button class="secondary-btn danger-btn" id="confirmCancelChapterBtn" value="default">학습 취소</button></div>
+      <span class="action-status" id="cancelLearningStatus"></span>
+    </form>
+  </dialog>
+
+  <dialog class="prior-learning-dialog" id="priorLearningDialog">
+    <form method="dialog" class="prior-learning-form">
+      <div class="dialog-heading-row">
+        <div><p class="eyebrow">Prior Learning Import</p><h2>이전 학습 불러오기</h2><p class="muted" id="priorLearningChapterLabel"></p></div>
+        <button class="dialog-close-btn" value="cancel" aria-label="닫기">✕</button>
+      </div>
+
+      <section class="import-step">
+        <div class="import-step-heading"><span>1</span><div><h3>이전 학습 기록</h3><p>과거 노트나 AI 대화 내용을 붙여넣으세요. 원문은 앱에 저장하지 않습니다.</p></div></div>
+        <textarea id="priorLearningSourceInput" maxlength="60000" placeholder="이전에 공부한 노트나 대화 내용을 붙여넣으세요."></textarea>
+        <div class="import-actions"><button class="primary-btn" id="preparePriorAssessmentBtn" type="button">판정 요청 복사 · 채팅 열기</button><span class="action-status" id="priorRequestStatus"></span></div>
+      </section>
+
+      <section class="import-step">
+        <div class="import-step-heading"><span>2</span><div><h3>AI 판정 결과</h3><p>채팅이 반환한 JSON 결과를 그대로 붙여넣고 미리 확인하세요.</p></div></div>
+        <textarea id="priorAssessmentResultInput" maxlength="60000" placeholder="{ &quot;contract&quot;: &quot;learning-assessment/v1&quot;, ... }"></textarea>
+        <div class="import-actions"><button class="secondary-btn" id="previewPriorAssessmentBtn" type="button">판정 결과 미리보기</button><span class="action-status" id="priorPreviewStatus"></span></div>
+      </section>
+
+      <section class="assessment-preview is-hidden" id="priorAssessmentPreview">
+        <div class="adapter-badge-row"><span class="status-pill">USER CONFIRMATION</span><small id="assessmentAdapterLabel">manual-handoff · API 교체 가능</small></div>
+        <p class="assessment-summary" id="priorAssessmentSummary"></p>
+        <div class="session-grid import-preview-grid">
+          <article class="checklist-card"><div class="card-heading"><h3>적용할 학습 단계</h3><strong id="priorStageCount">0 / 6</strong></div><div class="checklist" id="priorStageChecklist"></div></article>
+          <article class="checklist-card"><div class="card-heading"><h3>적용할 학습 목표</h3><strong id="priorObjectiveCount">0 / 5</strong></div><div class="checklist" id="priorObjectiveChecklist"></div></article>
+        </div>
+        <label class="import-summary-label" for="priorImportSummaryInput">저장할 학습 요약</label>
+        <textarea id="priorImportSummaryInput" maxlength="20000" placeholder="판정 요약을 수정하거나 직접 작성할 수 있습니다."></textarea>
+        <div class="import-actions import-actions--end"><span class="action-status" id="priorApplyStatus"></span><button class="primary-btn" id="applyPriorAssessmentBtn" type="button">선택 항목 적용</button></div>
+      </section>
+    </form>
+  </dialog>
+
+  <dialog class="prior-learning-dialog curriculum-import-dialog" id="curriculumImportDialog">
+    <form method="dialog" class="prior-learning-form">
+      <div class="dialog-heading-row">
+        <div><p class="eyebrow">Curriculum Import</p><h2>전체 학습 이력 불러오기</h2><p class="muted">40개 챕터를 먼저 범위 분석하고, 선택한 챕터만 상세 판정합니다.</p></div>
+        <button class="dialog-close-btn" value="cancel" aria-label="닫기">✕</button>
+      </div>
+
+      <section class="import-step">
+        <div class="import-step-heading"><span>1</span><div><h3>전체 이전 학습 기록</h3><p>여러 주제가 섞인 노트나 AI 대화를 한 번에 붙여넣으세요. 원문은 저장하지 않습니다.</p></div></div>
+        <textarea id="curriculumSourceInput" maxlength="60000" placeholder="지금까지 공부한 노트나 대화 기록을 한 번에 붙여넣으세요."></textarea>
+        <div class="import-actions"><button class="primary-btn" id="prepareCurriculumAssessmentBtn" type="button">전체 분석 요청 복사 · 채팅 열기</button><span class="action-status" id="curriculumRequestStatus"></span></div>
+      </section>
+
+      <section class="import-step">
+        <div class="import-step-heading"><span>2</span><div><h3>전체 분석 결과</h3><p>AI가 반환한 curriculum-assessment JSON을 붙여넣으세요.</p></div></div>
+        <textarea id="curriculumAssessmentResultInput" maxlength="200000" placeholder="{ &quot;contract&quot;: &quot;curriculum-assessment/v1&quot;, ... }"></textarea>
+        <div class="import-actions"><button class="secondary-btn" id="previewCurriculumAssessmentBtn" type="button">전체 결과 미리보기</button><span class="action-status" id="curriculumPreviewStatus"></span></div>
+      </section>
+
+      <section class="assessment-preview is-hidden" id="curriculumCoveragePreview">
+        <div class="adapter-badge-row"><span class="status-pill">COVERAGE SCAN</span><small>manual-handoff · 완료 처리 없음</small></div>
+        <p class="assessment-summary" id="curriculumCoverageSummary"></p>
+        <div class="coverage-toolbar"><strong id="curriculumCoverageCount">0 / 40 선택</strong><button class="text-btn" id="selectDetectedCoverageBtn" type="button">근거 있는 챕터만 선택</button></div>
+        <div class="curriculum-coverage-list" id="curriculumCoverageList"></div>
+        <div class="import-actions import-actions--end">
+          <span class="action-status" id="curriculumCoverageApplyStatus"></span>
+          <button class="secondary-btn" id="saveCurriculumCoverageBtn" type="button">선택 범위만 저장</button>
+          <button class="primary-btn" id="prepareCurriculumDetailBtn" type="button">선택 챕터 상세 판정 요청</button>
+        </div>
+      </section>
+
+      <section class="import-step is-hidden" id="curriculumDetailStep">
+        <div class="import-step-heading"><span>3</span><div><h3>선택 챕터 상세 판정</h3><p id="curriculumDetailHelp">복사된 요청을 채팅에 전송한 뒤 상세 JSON을 붙여넣으세요.</p></div></div>
+        <textarea id="curriculumDetailResultInput" maxlength="200000" placeholder="{ &quot;contract&quot;: &quot;curriculum-detail-assessment/v1&quot;, ... }"></textarea>
+        <div class="import-actions"><button class="secondary-btn" id="previewCurriculumDetailBtn" type="button">상세 결과 미리보기</button><span class="action-status" id="curriculumDetailStatus"></span></div>
+      </section>
+
+      <section class="assessment-preview is-hidden" id="curriculumDetailPreview">
+        <div class="adapter-badge-row"><span class="status-pill">DETAIL REVIEW</span><small>항목을 직접 수정한 뒤 일괄 적용합니다.</small></div>
+        <div class="curriculum-detail-list" id="curriculumDetailList"></div>
+        <div class="import-actions import-actions--end"><span class="action-status" id="curriculumDetailApplyStatus"></span><button class="primary-btn" id="applyCurriculumDetailBtn" type="button">선택한 상세 진행도 일괄 적용</button></div>
+      </section>
+    </form>
+  </dialog>
 
   <!-- 설정 오버레이: 같은 화면 위로 페이드 인/아웃 -->
   <div class="settings-overlay" id="settingsOverlay" aria-hidden="true">
@@ -40,6 +210,17 @@
       </div>
 
       <div class="settings-scroll">
+        <section class="settings-section">
+          <h3 class="section-title">학습 채팅</h3>
+          <div class="setting-row">
+            <label class="setting-label" for="learningChatProviderSelect">기본 서비스</label>
+            <select class="setting-select" id="learningChatProviderSelect">
+              <option value="chatgpt">ChatGPT</option>
+              <option value="claude">Claude</option>
+            </select>
+          </div>
+          <p class="setting-hint">현재는 수동 핸드오프를 사용합니다. 학습·판정 상태는 공급자와 분리되어 나중에 API 어댑터로 교체할 수 있습니다.</p>
+        </section>
         <!-- 집중 판정 목록 -->
         <section class="whitelist-section">
           <h3 class="section-title">집중 판정 목록</h3>
@@ -182,6 +363,6 @@
     </div>
   </div>
 
-  <script src="renderer.js"></script>
+  <script type="module" src="renderer.js"></script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 'use strict';
 
+import { initLearningApp } from './learning-app.js';
+
 // renderer.js — 대시보드 렌더러 스크립트
 // window.focusAPI 는 src/preload/index.js 가 contextBridge로 노출
 
@@ -13,6 +15,7 @@ function formatTime(totalSeconds) {
 
 window.addEventListener('DOMContentLoaded', () => {
   const timerEl        = document.getElementById('timer');
+  const detailedTimerEl = document.getElementById('focusTimerDetailed');
   const breakTimerEl   = document.getElementById('breakTimer');
   const stateBadgeEl   = document.getElementById('stateBadge');
   const connectionEl   = document.getElementById('connectionBadge');
@@ -107,6 +110,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.focusAPI.onTick(({ state, workSeconds, breakSeconds }) => {
     // 오늘 집중 시간 (자정에 자동 0)
     timerEl.textContent = formatTime(workSeconds);
+    if (detailedTimerEl) detailedTimerEl.textContent = formatTime(workSeconds);
 
     // 상태 배지 갱신
     const isWork = state === 'WORK';
@@ -121,10 +125,10 @@ window.addEventListener('DOMContentLoaded', () => {
         breakTimerEl.textContent = isWork
           ? `쉬는 시간 ${formatTime(bs)} · 집중 유지 시 초기화`
           : `쉬는 시간 ${formatTime(bs)}`;
-        breakTimerEl.style.display = '';
+        breakTimerEl.classList.remove('is-hidden');
       } else {
         breakTimerEl.textContent = '';
-        breakTimerEl.style.display = 'none';
+        breakTimerEl.classList.add('is-hidden');
       }
     }
   });
@@ -151,7 +155,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       // 카메라 미리보기 버튼은 웹캠 추적이 켜졌을 때만 노출
       if (cameraPreviewBtn) {
-        cameraPreviewBtn.style.display = s.cameraEnabled ? '' : 'none';
+        cameraPreviewBtn.classList.toggle('is-hidden', !s.cameraEnabled);
       }
 
       // 웹캠 상태 배지
@@ -239,6 +243,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const phoneAlertMessageInput = document.getElementById('phoneAlertMessageInput');
   const phoneServerUrlEl = document.getElementById('phoneServerUrl');
   const phonePairingTokenEl = document.getElementById('phonePairingToken');
+  const learningChatProviderSelect = document.getElementById('learningChatProviderSelect');
 
   // 카메라 소스에 따라 장치 선택 / 스트림 URL 행 표시 토글
   function applyCameraSourceVisibility() {
@@ -324,6 +329,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (phoneBreakDurationInput) phoneBreakDurationInput.value = s.phoneBreakDurationSec ?? 60;
       if (phoneActualUseThresholdInput) phoneActualUseThresholdInput.value = s.phoneActualUseThresholdSec ?? 60;
       if (phoneAlertMessageInput) phoneAlertMessageInput.value = s.phoneAlertMessage || '집중해라!!!';
+      if (learningChatProviderSelect) learningChatProviderSelect.value = s.learningChatProvider === 'claude' ? 'claude' : 'chatgpt';
       applyCameraSourceVisibility();
       applyPhoneModeUI();
     } catch {
@@ -359,6 +365,9 @@ window.addEventListener('DOMContentLoaded', () => {
       };
       try {
         await window.focusAPI.setSettings(partial);
+        if (window.learningAPI && typeof window.learningAPI.setChatProvider === 'function' && learningChatProviderSelect) {
+          await window.learningAPI.setChatProvider(learningChatProviderSelect.value);
+        }
         settingsSaveStatus.textContent = '저장됨 ✓';
         setTimeout(() => { settingsSaveStatus.textContent = ''; }, 2000);
       } catch {
@@ -383,6 +392,8 @@ window.addEventListener('DOMContentLoaded', () => {
   loadControlUrl();
   loadSettings();
   loadPhoneSetup();
+
+  initLearningApp();
 
   // NOTE (worker-1 연동): preload/index.js에 아래를 추가해야 함:
   //   getSettings: () => ipcRenderer.invoke('settings:get'),

@@ -64,3 +64,57 @@ contextBridge.exposeInMainWorld('focusAPI', {
     return ipcRenderer.invoke('camera:showPreview');
   },
 });
+
+contextBridge.exposeInMainWorld('learningAPI', {
+  getSnapshot() {
+    return ipcRenderer.invoke('learning:getSnapshot');
+  },
+  startChapter(chapterId) {
+    return ipcRenderer.invoke('learning:startChapter', chapterId);
+  },
+  updateChecklist(chapterId, patch) {
+    return ipcRenderer.invoke('learning:updateChecklist', chapterId, patch);
+  },
+  cancelChapter(chapterId) {
+    return ipcRenderer.invoke('learning:cancelChapter', chapterId);
+  },
+  copyPrompt(chapterId) {
+    return ipcRenderer.invoke('learning:copyPrompt', chapterId);
+  },
+  openChat() {
+    return ipcRenderer.invoke('learning:openChat');
+  },
+  completeChapter(chapterId, summary) {
+    return ipcRenderer.invoke('learning:completeChapter', chapterId, summary);
+  },
+  preparePriorAssessment(chapterId, sourceText) {
+    return ipcRenderer.invoke('learning:preparePriorAssessment', chapterId, sourceText);
+  },
+  previewPriorAssessment(chapterId, sourceText, rawResponse) {
+    return ipcRenderer.invoke('learning:previewPriorAssessment', chapterId, sourceText, rawResponse);
+  },
+  applyPriorAssessment(chapterId, assessment, selection) {
+    return ipcRenderer.invoke('learning:applyPriorAssessment', chapterId, assessment, selection);
+  },
+  prepareCurriculumAssessment(sourceText) {
+    return ipcRenderer.invoke('learning:prepareCurriculumAssessment', sourceText);
+  },
+  previewCurriculumAssessment(sourceText, rawResponse) {
+    return ipcRenderer.invoke('learning:previewCurriculumAssessment', sourceText, rawResponse);
+  },
+  applyCurriculumCoverage(assessment, selectedChapterIds) {
+    return ipcRenderer.invoke('learning:applyCurriculumCoverage', assessment, selectedChapterIds);
+  },
+  prepareCurriculumDetailAssessment(sourceText, chapterIds) {
+    return ipcRenderer.invoke('learning:prepareCurriculumDetailAssessment', sourceText, chapterIds);
+  },
+  previewCurriculumDetailAssessment(sourceText, chapterIds, rawResponse) {
+    return ipcRenderer.invoke('learning:previewCurriculumDetailAssessment', sourceText, chapterIds, rawResponse);
+  },
+  applyCurriculumDetailAssessment(assessmentBatch, selections) {
+    return ipcRenderer.invoke('learning:applyCurriculumDetailAssessment', assessmentBatch, selections);
+  },
+  setChatProvider(provider) {
+    return ipcRenderer.invoke('learning:setProvider', provider);
+  },
+});
