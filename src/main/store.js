@@ -1,6 +1,7 @@
 'use strict';
 
 const Store = require('electron-store');
+const crypto = require('crypto');
 
 // 기본 시드 화이트리스트
 // 앱 키워드는 get-windows의 owner.name(친근한 표시 이름)에 "부분 포함"으로 매칭된다.
@@ -21,6 +22,12 @@ const DEFAULT_SETTINGS = {
   awayThresholdMin: 10,       // 자리 비움 알림 임계값(분)
   telegram: null,             // { botToken: string, chatId: string } | null
   petEnabled: true,           // 떠다니는 코딩 펫 창 표시 on/off
+  phoneIntegrationEnabled: false, // iPhone Screen Time 연동 on/off
+  phoneDetectionMode: 'actual_use', // 'screen_on'(근사) | 'actual_use'
+  phoneBreakDurationSec: 60,       // 감지 1회가 BREAK를 유지하는 시간
+  phoneActualUseThresholdSec: 60,  // 실제 사용 모드의 Screen Time 임계값
+  phoneAlertMessage: '집중해라!!!',
+  phoneRestSchedules: [],          // [{ id, name, enabled, days:[0..6], start:'HH:mm', end:'HH:mm' }]
 };
 
 // partial 설정을 기본값에 얕게 병합 — 순수 함수이므로 단독 테스트 가능
@@ -73,6 +80,22 @@ module.exports = {
     const current = store.get('settings', {});
     const next = mergeSettings(current, partial);
     store.set('settings', next);
+  },
+
+  // iPhone 앱이 로컬 API에 접속할 때 사용하는 설치별 비밀 토큰.
+  getPhonePairingToken() {
+    let token = store.get('phonePairingToken', '');
+    if (!token) {
+      token = crypto.randomBytes(24).toString('base64url');
+      store.set('phonePairingToken', token);
+    }
+    return token;
+  },
+
+  regeneratePhonePairingToken() {
+    const token = crypto.randomBytes(24).toString('base64url');
+    store.set('phonePairingToken', token);
+    return token;
   },
 
   // 테스트에서 순수 로직을 직접 검증하기 위해 노출

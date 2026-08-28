@@ -49,6 +49,7 @@ const petWindow        = require('./petWindow');
 const gazeManager      = require('./gazeManager');
 const { createAwayManager } = require('./awayManager');
 const notifier         = require('./notifier');
+const { createPhoneFocusManager, normalizePhoneConfig } = require('./phoneFocusManager');
 const {
   startControlServer,
   stopControlServer,
@@ -64,6 +65,7 @@ let helpWindow = null;
 let tray = null;
 let focusState = null;
 let awayManager = null;
+let phoneFocusManager = null;
 
 // 폴링 간 최신 창/URL 상태를 보관
 let lastWindowInfo     = { app: '', title: '', isChrome: false };
@@ -94,7 +96,18 @@ function sendToRenderer(channel, data) {
   }
 }
 
-// whitelist 판정 + 카메라 BREAK 신호를 AND로 합산해 focusState에 적용
+function getPhoneStatus() {
+  return phoneFocusManager
+    ? phoneFocusManager.getStatus()
+    : { enabled: false, isBreak: false, scheduledBreak: false, source: null };
+}
+
+function isAuthorizedRest() {
+  const phoneStatus = getPhoneStatus();
+  return getManualBreak() || phoneStatus.scheduledBreak;
+}
+
+// whitelist 판정 + 카메라/휴대폰 BREAK 신호를 합산해 focusState에 적용
 function evaluateAndUpdate() {
   const config = store.getWhitelist();
   const settings = store.getSettings();
@@ -114,6 +127,12 @@ function evaluateAndUpdate() {
     state = 'BREAK';
   }
 
+  const phoneStatus = getPhoneStatus();
+  if (getManualBreak() || phoneStatus.isBreak) {
+    state = 'BREAK';
+  }
+
+  focusState.setBreakAlertSuppressed(isAuthorizedRest());
   focusState.setState(state);
 
   // 현재 무엇을 보고 어떻게 판정했는지 대시보드에 표시 (사용자가 화이트리스트에 추가할 이름 확인용)
@@ -126,6 +145,10 @@ function evaluateAndUpdate() {
     // 웹캠 상태: 카메라 추적 on/off + 실제 연결 여부
     cameraEnabled: !!settings.cameraEnabled,
     cameraConnected: gazeConnected,
+    phoneEnabled: phoneStatus.enabled,
+    phoneBreak: phoneStatus.isBreak,
+    phoneBreakSource: phoneStatus.source,
+    phoneActiveSchedule: phoneStatus.activeSchedule || null,
   });
 }
 
@@ -280,11 +303,53 @@ function startAwayManager() {
       catch (e) { return 0; }
     },
     getFacePresent: () => !gazeForceBreak,  // gazeForceBreak=true → facePresent=false
-    isManualBreak: () => getManualBreak(),
+    isManualBreak: () => isAuthorizedRest(),
     sendPhone: (message, settings) => notifier.sendPhone(message, settings),
     pollIntervalMs: 5000,
   });
   awayManager.start();
+}
+
+function publicConfigToSettings(partial = {}) {
+  const current = phoneFocusManager
+    ? phoneFocusManager.getConfig()
+    : normalizePhoneConfig(store.getSettings());
+  const merged = { ...current, ...partial };
+  const normalized = normalizePhoneConfig({
+    phoneIntegrationEnabled: merged.enabled,
+    phoneDetectionMode: merged.detectionMode,
+    phoneBreakDurationSec: merged.breakDurationSec,
+    phoneActualUseThresholdSec: merged.actualUseThresholdSec,
+    phoneAlertMessage: merged.alertMessage,
+    phoneRestSchedules: merged.restSchedules,
+  });
+  return {
+    phoneIntegrationEnabled: normalized.enabled,
+    phoneDetectionMode: normalized.detectionMode,
+    phoneBreakDurationSec: normalized.breakDurationSec,
+    phoneActualUseThresholdSec: normalized.actualUseThresholdSec,
+    phoneAlertMessage: normalized.alertMessage,
+    phoneRestSchedules: normalized.restSchedules,
+  };
+}
+
+function updatePhoneConfig(partial) {
+  store.setSettings(publicConfigToSettings(partial));
+  if (phoneFocusManager) phoneFocusManager.refresh();
+  if (focusState) evaluateAndUpdate();
+  return phoneFocusManager
+    ? phoneFocusManager.getConfig()
+    : normalizePhoneConfig(store.getSettings());
+}
+
+function startPhoneFocusManager() {
+  phoneFocusManager = createPhoneFocusManager({
+    getSettings: () => store.getSettings(),
+  });
+  phoneFocusManager.onChange(() => {
+    if (focusState) evaluateAndUpdate();
+  });
+  phoneFocusManager.start();
 }
 
 // 화이트리스트 IPC 핸들러
@@ -307,6 +372,7 @@ ipcMain.handle('settings:set', async (_event, partial) => {
 
   // cameraEnabled 변경 시 gaze 추적 on/off
   const updated = store.getSettings();
+  if (phoneFocusManager) phoneFocusManager.refresh();
   if (updated.cameraEnabled) {
     startGazeTracking();
   } else {
@@ -314,6 +380,8 @@ ipcMain.handle('settings:set', async (_event, partial) => {
     gazeForceBreak = false;
     gazeConnected = false;
   }
+
+  if (focusState) evaluateAndUpdate();
 
   // petEnabled 변경 시 펫 창 표시/숨김
   if (updated.petEnabled) {
@@ -351,15 +419,33 @@ ipcMain.handle('control:url', async () => {
   return `http://${getLanIp()}:47616`;
 });
 
+// iPhone 동반 앱 연결 정보. 토큰은 로컬 UI에만 노출하고 로그에는 남기지 않는다.
+ipcMain.handle('phone:setup', async () => ({
+  serverUrl: `http://${getLanIp()}:47616`,
+  pairingToken: store.getPhonePairingToken(),
+  config: phoneFocusManager ? phoneFocusManager.getConfig() : normalizePhoneConfig(store.getSettings()),
+  status: getPhoneStatus(),
+}));
+
 app.whenReady().then(() => {
   registerMpProtocol();   // MediaPipe 에셋 서빙
   createWindow();
   createTray();
   startFocusState();
+  startPhoneFocusManager();
   startTracking();
   startGazeTracking();  // cameraEnabled=false면 no-op
   startAwayManager();
-  startControlServer(47616);
+  startControlServer(47616, {
+    onManualBreakChange: () => evaluateAndUpdate(),
+    phoneApi: {
+      getPairingToken: () => store.getPhonePairingToken(),
+      getConfig: () => phoneFocusManager.getConfig(),
+      getStatus: () => phoneFocusManager.getStatus(),
+      updateConfig: (partial) => updatePhoneConfig(partial),
+      receiveEvent: (event) => phoneFocusManager.receiveEvent(event),
+    },
+  });
 
   // Claude Code/Codex 작업 상태(hook으로 갱신)가 바뀌면 펫 자세 갱신
   setCodingAgentStatusListener(() => updatePetPose());
@@ -378,6 +464,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     if (focusState) focusState.stop();
     if (awayManager) awayManager.stop();
+    if (phoneFocusManager) phoneFocusManager.stop();
     tracker.stopTracking();
     chromeBridge.stopBridge();
     gazeManager.stopGaze();

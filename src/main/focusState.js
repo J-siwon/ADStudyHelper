@@ -41,6 +41,7 @@ class FocusState extends EventEmitter {
     this._breakSeconds = 0;
     this._contWorkSeconds = 0;   // 마지막 BREAK 이후 연속 WORK 누적초
     this._breakAlertFired = false;
+    this._breakAlertSuppressed = false;
     this._tickInterval = null;
   }
 
@@ -77,7 +78,9 @@ class FocusState extends EventEmitter {
       } else {
         this._breakSeconds += 1;
         // 연속 BREAK가 임계값 초과 시 1회 발생
-        if (!this._breakAlertFired && this._breakSeconds >= this._breakThresholdSec) {
+        if (!this._breakAlertSuppressed
+          && !this._breakAlertFired
+          && this._breakSeconds >= this._breakThresholdSec) {
           this._breakAlertFired = true;
           this.emit('breakAlert');
         }
@@ -106,6 +109,11 @@ class FocusState extends EventEmitter {
   // 누적 WORK 초
   getWorkSeconds() {
     return this._workSeconds;
+  }
+
+  // 사용자가 지정한 휴식 중에는 경고를 보류한다. 휴식이 끝난 뒤에도 BREAK면 다음 tick에서 경고 가능.
+  setBreakAlertSuppressed(suppressed) {
+    this._breakAlertSuppressed = suppressed === true;
   }
 }
 

@@ -2,6 +2,7 @@
 
 const http = require('http');
 const os = require('os');
+const crypto = require('crypto');
 
 // Local HTTP control server (port 47616).
 // Lets a phone on the same LAN toggle manualBreak to suppress away notifications.
@@ -10,6 +11,8 @@ const os = require('os');
 
 let manualBreak = false;
 let server = null;
+let phoneApi = null;
+let manualBreakListener = null;
 
 // Claude Code + Codex 작업 상태 — 공급자와 session_id 조합으로 작업중 추적.
 // hook이 /<provider>/working?id=<sid> 으로 핑, /<provider>/done?id=<sid> 으로 종료.
@@ -23,6 +26,12 @@ const CODING_AGENT_TIMEOUT_MS = 180 * 1000;
 /** Returns the current manualBreak flag. awayManager polls this to suppress notifications. */
 function getManualBreak() {
   return manualBreak;
+}
+
+function notifyManualBreakListener() {
+  if (typeof manualBreakListener === 'function') {
+    try { manualBreakListener(manualBreak); } catch (e) { /* noop */ }
+  }
 }
 
 function sessionKey(provider, sessionId) {
@@ -131,9 +140,117 @@ function html(title, body, port) {
 </html>`;
 }
 
+function sendJson(res, statusCode, value) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+  });
+  res.end(JSON.stringify(value));
+}
+
+function readJsonBody(req, maxBytes = 64 * 1024) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let bytes = 0;
+    req.setEncoding('utf8');
+    req.on('data', (chunk) => {
+      bytes += Buffer.byteLength(chunk);
+      if (bytes > maxBytes) {
+        reject(Object.assign(new Error('payload_too_large'), { statusCode: 413 }));
+        req.destroy();
+        return;
+      }
+      body += chunk;
+    });
+    req.on('end', () => {
+      if (!body) {
+        resolve({});
+        return;
+      }
+      try { resolve(JSON.parse(body)); }
+      catch (error) { reject(Object.assign(new Error('invalid_json'), { statusCode: 400 })); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function getBearerToken(req) {
+  const authorization = String(req.headers.authorization || '');
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : String(req.headers['x-adsh-token'] || '').trim();
+}
+
+function safeTokenEqual(actual, expected) {
+  const actualBuffer = Buffer.from(String(actual || ''), 'utf8');
+  const expectedBuffer = Buffer.from(String(expected || ''), 'utf8');
+  return actualBuffer.length > 0
+    && actualBuffer.length === expectedBuffer.length
+    && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+async function handlePhoneApiRequest(req, res, pathname) {
+  if (!phoneApi) {
+    sendJson(res, 503, { ok: false, error: 'phone_integration_unavailable' });
+    return;
+  }
+
+  const expectedToken = typeof phoneApi.getPairingToken === 'function'
+    ? phoneApi.getPairingToken()
+    : '';
+  if (!safeTokenEqual(getBearerToken(req), expectedToken)) {
+    sendJson(res, 401, { ok: false, error: 'unauthorized' });
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/api/phone/status') {
+    const status = typeof phoneApi.getStatus === 'function' ? phoneApi.getStatus() : {};
+    sendJson(res, 200, { ok: true, status });
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/api/phone/config') {
+    const config = typeof phoneApi.getConfig === 'function' ? phoneApi.getConfig() : {};
+    sendJson(res, 200, { ok: true, config });
+    return;
+  }
+
+  if (req.method === 'PUT' && pathname === '/api/phone/config') {
+    if (typeof phoneApi.updateConfig !== 'function') {
+      sendJson(res, 405, { ok: false, error: 'config_is_read_only' });
+      return;
+    }
+    const body = await readJsonBody(req);
+    const config = phoneApi.updateConfig(body && body.config ? body.config : body);
+    sendJson(res, 200, { ok: true, config });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/api/phone/event') {
+    if (typeof phoneApi.receiveEvent !== 'function') {
+      sendJson(res, 503, { ok: false, error: 'event_handler_unavailable' });
+      return;
+    }
+    const body = await readJsonBody(req);
+    const result = phoneApi.receiveEvent(body);
+    sendJson(res, result && result.accepted ? 202 : 409, { ok: !!(result && result.accepted), ...result });
+    return;
+  }
+
+  sendJson(res, 404, { ok: false, error: 'not_found' });
+}
+
 function handleRequest(port) {
   return function (req, res) {
     const url = req.url.split('?')[0];
+
+    // iPhone 동반 앱 전용 API. 코딩 에이전트 세션 라우트와 상태를 공유하지 않는다.
+    if (url.startsWith('/api/phone/')) {
+      handlePhoneApiRequest(req, res, url).catch((error) => {
+        if (res.headersSent) return;
+        sendJson(res, error.statusCode || 500, { ok: false, error: error.message || 'internal_error' });
+      });
+      return;
+    }
 
     // Claude Code/Codex hook 상태 갱신 (GET/POST 무관). 공급자 + session_id로 구분.
     const agentRoute = url.match(/^\/(claude|codex)\/(working|done|status)$/);
@@ -170,7 +287,9 @@ function handleRequest(port) {
     }
 
     if (url === '/break') {
+      const changed = !manualBreak;
       manualBreak = true;
+      if (changed) notifyManualBreakListener();
       const body = `<p class="status">쉬는시간 등록됨 — 알림이 꺼졌습니다.</p>
   <a class="btn resume-btn" href="/resume">복귀 (알림 다시 켜기)</a>
   <a class="btn" style="background:#607d8b" href="/">현재 상태</a>`;
@@ -178,7 +297,9 @@ function handleRequest(port) {
       res.end(html('쉬는시간 등록됨', body, port));
 
     } else if (url === '/resume') {
+      const changed = manualBreak;
       manualBreak = false;
+      if (changed) notifyManualBreakListener();
       const body = `<p class="status">복귀 완료 — 알림이 다시 켜졌습니다.</p>
   <a class="btn break-btn" href="/break">쉬는시간 등록</a>
   <a class="btn" style="background:#607d8b" href="/">현재 상태</a>`;
@@ -199,13 +320,17 @@ function handleRequest(port) {
 
 /**
  * Start the control HTTP server.
- * @param {number} port - Port to listen on (default 47616)
+ * @param {number} port - Port to listen on (default 47616, 0이면 임의 포트)
+ * @param {object} options - { phoneApi, onManualBreakChange }
  */
-function startControlServer(port) {
-  if (server) return;
+function startControlServer(port = 47616, options = {}) {
+  if (server) return server;
+  phoneApi = options.phoneApi || null;
+  manualBreakListener = options.onManualBreakChange || null;
   server = http.createServer(handleRequest(port));
   server.listen(port, '0.0.0.0', () => {
-    console.log(`[controlServer] 폰 제어 서버 시작: http://${getLanIp()}:${port}`);
+    const actualPort = server && server.address() ? server.address().port : port;
+    console.log(`[controlServer] 폰 제어 서버 시작: http://${getLanIp()}:${actualPort}`);
   });
   // 워치독: 에이전트 hook 신호가 끊긴 세션은 일정 시간 뒤 제거 (크래시 대비)
   if (!codingAgentWatchdog) {
@@ -221,6 +346,11 @@ function startControlServer(port) {
       if (changed) notifyCodingAgentListener();
     }, 15 * 1000);
   }
+  return server;
+}
+
+function getControlPort() {
+  return server && server.address() ? server.address().port : null;
 }
 
 /** Stop the control HTTP server. manualBreak state is preserved across restarts. */
@@ -230,6 +360,8 @@ function stopControlServer() {
     codingAgentWatchdog = null;
   }
   codingAgentSessions.clear();
+  phoneApi = null;
+  manualBreakListener = null;
   if (!server) return;
   server.close();
   server = null;
@@ -240,6 +372,7 @@ module.exports = {
   stopControlServer,
   getManualBreak,
   getLanIp,
+  getControlPort,
   getCodingAgentWorking,
   getCodingAgentCount,
   getAgentCounts,

@@ -49,6 +49,11 @@ contextBridge.exposeInMainWorld('focusAPI', {
     return ipcRenderer.invoke('control:url');
   },
 
+  // renderer -> main: iPhone 동반 앱 서버 주소/페어링 토큰/현재 상태 조회
+  getPhoneSetup() {
+    return ipcRenderer.invoke('phone:setup');
+  },
+
   // renderer -> main: 도움말 창 열기
   openHelp() {
     return ipcRenderer.invoke('help:open');

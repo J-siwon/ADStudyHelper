@@ -1,0 +1,65 @@
+name: ADStudyHelperPhone
+options:
+  bundleIdPrefix: com.jsiwon.adstudyhelper
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  ADStudyHelperPhone:
+    type: application
+    platform: iOS
+    sources:
+      - path: ADStudyHelperPhone
+      - path: Shared
+    dependencies:
+      - target: ADStudyHelperMonitor
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jsiwon.adstudyhelper.phone
+        PRODUCT_NAME: ADStudyHelper
+        INFOPLIST_FILE: ADStudyHelperPhone/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ADStudyHelperPhone/ADStudyHelperPhone.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+  ADStudyHelperMonitor:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DeviceActivityMonitorExtension
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jsiwon.adstudyhelper.phone.monitor
+        PRODUCT_NAME: ADStudyHelperMonitor
+        INFOPLIST_FILE: DeviceActivityMonitorExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DeviceActivityMonitorExtension/ADStudyHelperMonitor.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+  ADStudyHelperPhoneTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: ADStudyHelperPhone
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jsiwon.adstudyhelper.phone.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  ADStudyHelperPhone:
+    build:
+      targets:
+        ADStudyHelperPhone: all
+        ADStudyHelperMonitor: all
+        ADStudyHelperPhoneTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - ADStudyHelperPhoneTests

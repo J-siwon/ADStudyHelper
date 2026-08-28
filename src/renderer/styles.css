@@ -287,6 +287,25 @@ html, body {
   gap: 12px;
 }
 
+.setting-row--stack {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.section-title--sub {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.setting-hint {
+  margin: -5px 0 2px;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .setting-label {
   font-size: 13px;
   color: var(--text);
@@ -332,6 +351,10 @@ html, body {
   color: var(--accent);
   font-family: monospace;
   word-break: break-all;
+}
+
+.setting-value--secret {
+  user-select: all;
 }
 
 /* 토글 스위치 */

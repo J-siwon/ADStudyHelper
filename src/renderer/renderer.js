@@ -17,6 +17,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const stateBadgeEl   = document.getElementById('stateBadge');
   const connectionEl   = document.getElementById('connectionBadge');
   const cameraBadgeEl  = document.getElementById('cameraBadge');
+  const phoneBadgeEl   = document.getElementById('phoneBadge');
   const currentAppEl   = document.getElementById('currentApp');
   const appsTextarea   = document.getElementById('appsTextarea');
   const urlsTextarea   = document.getElementById('urlsTextarea');
@@ -166,6 +167,20 @@ window.addEventListener('DOMContentLoaded', () => {
           cameraBadgeEl.classList.add('disconnected');
         }
       }
+
+
+      if (phoneBadgeEl) {
+        phoneBadgeEl.classList.toggle('connected', !!s.phoneEnabled);
+        if (!s.phoneEnabled) {
+          phoneBadgeEl.textContent = 'iPhone 꺼짐';
+        } else if (s.phoneBreakSource === 'scheduled') {
+          phoneBadgeEl.textContent = 'iPhone 예약 휴식';
+        } else if (s.phoneBreak) {
+          phoneBadgeEl.textContent = 'iPhone 사용 감지';
+        } else {
+          phoneBadgeEl.textContent = 'iPhone 연동';
+        }
+      }
     });
   }
 
@@ -215,6 +230,15 @@ window.addEventListener('DOMContentLoaded', () => {
   const controlUrlEl         = document.getElementById('controlUrl');
   const settingsSaveBtn      = document.getElementById('settingsSaveBtn');
   const settingsSaveStatus   = document.getElementById('settingsSaveStatus');
+  const phoneIntegrationToggle = document.getElementById('phoneIntegrationToggle');
+  const phoneDetectionModeSelect = document.getElementById('phoneDetectionModeSelect');
+  const phoneModeHint = document.getElementById('phoneModeHint');
+  const phoneBreakDurationInput = document.getElementById('phoneBreakDurationInput');
+  const phoneActualUseThresholdRow = document.getElementById('phoneActualUseThresholdRow');
+  const phoneActualUseThresholdInput = document.getElementById('phoneActualUseThresholdInput');
+  const phoneAlertMessageInput = document.getElementById('phoneAlertMessageInput');
+  const phoneServerUrlEl = document.getElementById('phoneServerUrl');
+  const phonePairingTokenEl = document.getElementById('phonePairingToken');
 
   // 카메라 소스에 따라 장치 선택 / 스트림 URL 행 표시 토글
   function applyCameraSourceVisibility() {
@@ -226,6 +250,20 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (cameraSourceSelect) {
     cameraSourceSelect.addEventListener('change', applyCameraSourceVisibility);
+  }
+
+  function applyPhoneModeUI() {
+    const screenOn = phoneDetectionModeSelect && phoneDetectionModeSelect.value === 'screen_on';
+    if (phoneActualUseThresholdRow) phoneActualUseThresholdRow.style.display = screenOn ? 'none' : '';
+    if (phoneModeHint) {
+      phoneModeHint.textContent = screenOn
+        ? 'iOS는 정확한 화면 켜짐 이벤트를 공개하지 않아 모든 앱의 첫 화면 사용을 빠르게 감지하는 근사 모드입니다.'
+        : 'iPhone 앱에서 선택한 앱이 화면 전면에서 기준 시간만큼 사용되면 쉬는 시간으로 전환합니다.';
+    }
+  }
+
+  if (phoneDetectionModeSelect) {
+    phoneDetectionModeSelect.addEventListener('change', applyPhoneModeUI);
   }
 
   // focusAPI에 getSettings/setSettings 가 있을 때만 활성화
@@ -281,7 +319,13 @@ window.addEventListener('DOMContentLoaded', () => {
       if (cameraStreamUrlInput) cameraStreamUrlInput.value     = s.cameraStreamUrl || '';
       if (ntfyTopicInput)       ntfyTopicInput.value           = s.ntfyTopic || '';
       if (awayThresholdInput)   awayThresholdInput.value       = s.awayThresholdMin ?? 10;
+      if (phoneIntegrationToggle) phoneIntegrationToggle.checked = !!s.phoneIntegrationEnabled;
+      if (phoneDetectionModeSelect) phoneDetectionModeSelect.value = s.phoneDetectionMode || 'actual_use';
+      if (phoneBreakDurationInput) phoneBreakDurationInput.value = s.phoneBreakDurationSec ?? 60;
+      if (phoneActualUseThresholdInput) phoneActualUseThresholdInput.value = s.phoneActualUseThresholdSec ?? 60;
+      if (phoneAlertMessageInput) phoneAlertMessageInput.value = s.phoneAlertMessage || '집중해라!!!';
       applyCameraSourceVisibility();
+      applyPhoneModeUI();
     } catch {
       // 로드 실패 시 기본값 유지
     }
@@ -303,6 +347,15 @@ window.addEventListener('DOMContentLoaded', () => {
         cameraStreamUrl:  cameraStreamUrlInput ? cameraStreamUrlInput.value.trim() : '',
         ntfyTopic:        ntfyTopicInput ? ntfyTopicInput.value.trim() : '',
         awayThresholdMin: awayThresholdInput ? Number(awayThresholdInput.value) || 10 : 10,
+        phoneIntegrationEnabled: phoneIntegrationToggle ? phoneIntegrationToggle.checked : false,
+        phoneDetectionMode: phoneDetectionModeSelect && phoneDetectionModeSelect.value === 'screen_on'
+          ? 'screen_on'
+          : 'actual_use',
+        phoneBreakDurationSec: phoneBreakDurationInput ? Number(phoneBreakDurationInput.value) || 60 : 60,
+        phoneActualUseThresholdSec: phoneActualUseThresholdInput
+          ? Number(phoneActualUseThresholdInput.value) || 60
+          : 60,
+        phoneAlertMessage: phoneAlertMessageInput ? phoneAlertMessageInput.value.trim() || '집중해라!!!' : '집중해라!!!',
       };
       try {
         await window.focusAPI.setSettings(partial);
@@ -314,10 +367,22 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  async function loadPhoneSetup() {
+    if (!window.focusAPI || typeof window.focusAPI.getPhoneSetup !== 'function') return;
+    try {
+      const setup = await window.focusAPI.getPhoneSetup();
+      if (phoneServerUrlEl) phoneServerUrlEl.textContent = setup.serverUrl || '—';
+      if (phonePairingTokenEl) phonePairingTokenEl.textContent = setup.pairingToken || '—';
+    } catch {
+      if (phoneServerUrlEl) phoneServerUrlEl.textContent = '조회 실패';
+    }
+  }
+
   // 초기화
   populateCameraDevices();
   loadControlUrl();
   loadSettings();
+  loadPhoneSetup();
 
   // NOTE (worker-1 연동): preload/index.js에 아래를 추가해야 함:
   //   getSettings: () => ipcRenderer.invoke('settings:get'),

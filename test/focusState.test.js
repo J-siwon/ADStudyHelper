@@ -76,6 +76,20 @@ describe('FocusState — 기본 동작', () => {
 });
 
 describe('FocusState — tick 타이머', () => {
+  it('사용자가 지정한 휴식 중에는 breakAlert를 보류하고 해제 뒤 발생시킨다', async () => {
+    const fs = new FocusState({ breakThresholdSec: 1 });
+    let alertCount = 0;
+    fs.on('breakAlert', () => alertCount++);
+    fs.setBreakAlertSuppressed(true);
+    fs.start();
+    await wait(1200);
+    assert.equal(alertCount, 0);
+    fs.setBreakAlertSuppressed(false);
+    await wait(1100);
+    fs.stop();
+    assert.equal(alertCount, 1);
+  });
+
   it('WORK 상태에서 tick 후 getWorkSeconds 증가', async () => {
     const fs = new FocusState({ breakThresholdSec: 600 });
     fs.setState('WORK');

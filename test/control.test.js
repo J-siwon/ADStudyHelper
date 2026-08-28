@@ -5,12 +5,12 @@ const assert = require('node:assert/strict');
 const http = require('http');
 const { startControlServer, stopControlServer, getManualBreak } = require('../src/main/controlServer');
 
-const TEST_PORT = 47616;
+let testPort;
 
 /** Helper: GET http://127.0.0.1:<port><path> — resolves with { statusCode, body } */
 function get(path) {
   return new Promise((resolve, reject) => {
-    http.get(`http://127.0.0.1:${TEST_PORT}${path}`, (res) => {
+    http.get(`http://127.0.0.1:${testPort}${path}`, (res) => {
       let body = '';
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => resolve({ statusCode: res.statusCode, body }));
@@ -19,8 +19,12 @@ function get(path) {
 }
 
 // Start server once for all tests, stop after all done
-before(() => {
-  startControlServer(TEST_PORT);
+before(async () => {
+  const server = startControlServer(0);
+  if (!server.listening) {
+    await new Promise((resolve) => server.once('listening', resolve));
+  }
+  testPort = server.address().port;
 });
 
 after(() => {

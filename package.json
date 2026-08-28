@@ -7,7 +7,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "check": "node -e \"['whitelist','focusState','store','notifier','awayManager','controlServer','gazeManager','tracker','chromeBridge'].forEach(m=>require('./src/main/'+m+'.js'))\"",
+    "check": "node -e \"['whitelist','focusState','store','notifier','awayManager','controlServer','phoneFocusManager','gazeManager','tracker','chromeBridge'].forEach(m=>require('./src/main/'+m+'.js'))\"",
     "codex:install": "node scripts/install-codex-hook.js",
     "codex:uninstall": "node scripts/install-codex-hook.js --uninstall",
     "codex:verify": "node scripts/verify-codex-hook.js",
