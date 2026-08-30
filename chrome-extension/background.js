@@ -6,36 +6,69 @@
 
 const WS_URL = 'ws://127.0.0.1:47615';
 const RECONNECT_DELAY_MS = 3000;
+const KEEPALIVE_INTERVAL_MS = 20000;
 
 let ws = null;
 let reconnectTimer = null;
+let keepaliveTimer = null;
 
 function connect() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
     return;
   }
 
-  ws = new WebSocket(WS_URL);
+  const socket = new WebSocket(WS_URL);
+  ws = socket;
 
-  ws.addEventListener('open', () => {
+  socket.addEventListener('open', () => {
+    if (ws !== socket) return;
+
     console.log('[ADStudyHelper] WebSocket connected');
     if (reconnectTimer !== null) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+    startKeepalive();
     // Send current active tab URL immediately on connect
     sendActiveTab();
   });
 
-  ws.addEventListener('close', () => {
+  socket.addEventListener('close', () => {
+    if (ws !== socket) return;
+
+    ws = null;
+    stopKeepalive();
     console.log('[ADStudyHelper] WebSocket closed — reconnecting in', RECONNECT_DELAY_MS, 'ms');
     scheduleReconnect();
   });
 
-  ws.addEventListener('error', () => {
+  socket.addEventListener('error', () => {
     // error is always followed by close; just let close handler retry
-    ws.close();
+    socket.close();
   });
+}
+
+function startKeepalive() {
+  stopKeepalive();
+  keepaliveTimer = setInterval(() => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      stopKeepalive();
+      return;
+    }
+
+    try {
+      ws.send(JSON.stringify({ type: 'keepalive' }));
+    } catch (e) {
+      console.error('[ADStudyHelper] keepalive error:', e);
+      ws.close();
+    }
+  }, KEEPALIVE_INTERVAL_MS);
+}
+
+function stopKeepalive() {
+  if (keepaliveTimer === null) return;
+  clearInterval(keepaliveTimer);
+  keepaliveTimer = null;
 }
 
 function scheduleReconnect() {

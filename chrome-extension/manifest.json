@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "ADStudyHelper URL Bridge",
   "version": "1.0.0",
+  "minimum_chrome_version": "116",
   "description": "활성 탭 URL을 ADStudyHelper 데스크톱 앱에 전송하는 확장",
   "permissions": [
     "tabs",
