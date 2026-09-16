@@ -72,20 +72,38 @@ contextBridge.exposeInMainWorld('learningAPI', {
   startChapter(chapterId) {
     return ipcRenderer.invoke('learning:startChapter', chapterId);
   },
-  updateChecklist(chapterId, patch) {
-    return ipcRenderer.invoke('learning:updateChecklist', chapterId, patch);
-  },
   cancelChapter(chapterId) {
     return ipcRenderer.invoke('learning:cancelChapter', chapterId);
   },
-  copyPrompt(chapterId) {
-    return ipcRenderer.invoke('learning:copyPrompt', chapterId);
+  copyPrompt(chapterId, stageId) {
+    return ipcRenderer.invoke('learning:copyPrompt', chapterId, stageId);
   },
   openChat() {
     return ipcRenderer.invoke('learning:openChat');
   },
-  completeChapter(chapterId, summary) {
-    return ipcRenderer.invoke('learning:completeChapter', chapterId, summary);
+  previewStageResult(chapterId, stageId, rawResponse) {
+    return ipcRenderer.invoke('learning:previewStageResult', chapterId, stageId, rawResponse);
+  },
+  completeStage(chapterId, stageId, objectiveIds, evidenceById) {
+    return ipcRenderer.invoke('learning:completeStage', chapterId, stageId, objectiveIds, evidenceById);
+  },
+  startObjectiveSession(chapterId, objectiveId) {
+    return ipcRenderer.invoke('learning:startObjectiveSession', chapterId, objectiveId);
+  },
+  previewObjectiveResult(chapterId, objectiveId, rawResponse) {
+    return ipcRenderer.invoke('learning:previewObjectiveResult', chapterId, objectiveId, rawResponse);
+  },
+  completeObjectiveSession(chapterId, objectiveId, evidence) {
+    return ipcRenderer.invoke('learning:completeObjectiveSession', chapterId, objectiveId, evidence);
+  },
+  startReview(review) {
+    return ipcRenderer.invoke('learning:startReview', review);
+  },
+  previewReviewResult(chapterId, objectiveId, rawResponse) {
+    return ipcRenderer.invoke('learning:previewReviewResult', chapterId, objectiveId, rawResponse);
+  },
+  completeReview(chapterId, objectiveId, grade, kind) {
+    return ipcRenderer.invoke('learning:completeReview', chapterId, objectiveId, grade, kind);
   },
   preparePriorAssessment(chapterId, sourceText) {
     return ipcRenderer.invoke('learning:preparePriorAssessment', chapterId, sourceText);

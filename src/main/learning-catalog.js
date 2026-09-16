@@ -18,6 +18,23 @@ const AREA_TITLES = Object.freeze({
   career: 'Career',
 });
 
+const ADVANCED_OBJECTIVE_PATTERN = /설계|최적화|개선|트레이드오프|trade-?off|병목|진단|전략|아키텍처|포트폴리오|안전하게|확장|대안을 제시|근거와 함께 제시|문제를 해결/i;
+const BASIC_OBJECTIVE_PATTERN = /역할을 구분|정의할|의미를 설명|차이를 설명|흐름을 설명|범위를 설명|구성 요소|읽을 수|변환할|나열할|식별할/i;
+
+function classifyObjectiveDifficulty(description) {
+  if (ADVANCED_OBJECTIVE_PATTERN.test(description)) return 'advanced';
+  if (BASIC_OBJECTIVE_PATTERN.test(description)) return 'basic';
+  return 'applied';
+}
+
+function normalizeObjectiveDefinition(objective) {
+  const definition = typeof objective === 'string' ? { description: objective } : objective;
+  if (!definition || typeof definition.description !== 'string') throw new Error('invalid_objective_definition');
+  const difficulty = definition.difficulty || classifyObjectiveDifficulty(definition.description);
+  if (!['basic', 'applied', 'advanced'].includes(difficulty)) throw new Error('invalid_objective_difficulty');
+  return { description: definition.description, difficulty };
+}
+
 function defineChapter({
   id,
   areaId,
@@ -37,8 +54,8 @@ function defineChapter({
 
   const path = [AREA_TITLES[areaId], ...(groupTitle ? [groupTitle] : [])];
   const objectiveEntries = objectives.map((objective, index) => Object.freeze({
+    ...normalizeObjectiveDefinition(objective),
     id: `${id}-objective-${index + 1}`,
-    description: objective,
   }));
   const stages = [
     { ...STAGE_DEFINITIONS[0], description: discovery },
@@ -773,5 +790,6 @@ module.exports = {
   CHAPTER_BY_ID,
   CURRICULUM,
   STAGE_DEFINITIONS,
+  classifyObjectiveDifficulty,
   getChapter,
 };

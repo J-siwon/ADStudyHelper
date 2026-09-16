@@ -71,6 +71,73 @@ describe('gaze 상태 전이 시나리오', () => {
 // (gazeManager는 Electron API를 load 시 실행하지 않아 헤드리스 require 가능)
 const gazeManager = require('../src/main/gazeManager');
 
+describe('_createGazeBreakGate() — 5초 연속 이탈 후 BREAK', () => {
+  function createGate() {
+    let now = 0;
+    return {
+      gate: gazeManager._createGazeBreakGate({
+        delayMs: gazeManager._GAZE_BREAK_DELAY_MS,
+        now: () => now,
+      }),
+      setNow(value) { now = value; },
+    };
+  }
+
+  it('눈 깜빡임처럼 5초 미만 얼굴 미감지는 BREAK로 처리하지 않는다', () => {
+    const clock = createGate();
+    const missingFace = { facePresent: false, gazeOnScreen: false, connected: true };
+
+    assert.equal(clock.gate.update(missingFace), false);
+    clock.setNow(4999);
+    assert.equal(clock.gate.update(missingFace), false);
+  });
+
+  it('얼굴 미감지 또는 화면 밖 응시가 연속 5초면 BREAK로 처리한다', () => {
+    const missingFace = createGate();
+    assert.equal(missingFace.gate.update({ facePresent: false, gazeOnScreen: false, connected: true }), false);
+    missingFace.setNow(5000);
+    assert.equal(missingFace.gate.update({ facePresent: false, gazeOnScreen: false, connected: true }), true);
+
+    const lookingAway = createGate();
+    assert.equal(lookingAway.gate.update({ facePresent: true, gazeOnScreen: false, connected: true }), false);
+    lookingAway.setNow(5000);
+    assert.equal(lookingAway.gate.update({ facePresent: true, gazeOnScreen: false, connected: true }), true);
+  });
+
+  it('5초 안에 화면을 다시 보면 이탈 누적을 초기화한다', () => {
+    const clock = createGate();
+    const lookingAway = { facePresent: true, gazeOnScreen: false, connected: true };
+    const lookingAtScreen = { facePresent: true, gazeOnScreen: true, connected: true };
+
+    assert.equal(clock.gate.update(lookingAway), false);
+    clock.setNow(4000);
+    assert.equal(clock.gate.update(lookingAtScreen), false);
+
+    clock.setNow(5000);
+    assert.equal(clock.gate.update(lookingAway), false);
+    clock.setNow(9999);
+    assert.equal(clock.gate.update(lookingAway), false);
+    clock.setNow(10000);
+    assert.equal(clock.gate.update(lookingAway), true);
+  });
+
+  it('카메라 연결 끊김은 BREAK를 강제하지 않고 이탈 누적도 초기화한다', () => {
+    const clock = createGate();
+    const lookingAway = { facePresent: true, gazeOnScreen: false, connected: true };
+
+    assert.equal(clock.gate.update(lookingAway), false);
+    clock.setNow(5000);
+    assert.equal(clock.gate.update({ facePresent: false, gazeOnScreen: false, connected: false }), false);
+
+    clock.setNow(6000);
+    assert.equal(clock.gate.update(lookingAway), false);
+    clock.setNow(10999);
+    assert.equal(clock.gate.update(lookingAway), false);
+    clock.setNow(11000);
+    assert.equal(clock.gate.update(lookingAway), true);
+  });
+});
+
 describe('_isValidStreamUrl() — 스트림 URL 유효성', () => {
   it('http URL은 유효', () => {
     assert.equal(gazeManager._isValidStreamUrl('http://192.168.0.5:8080/video'), true);

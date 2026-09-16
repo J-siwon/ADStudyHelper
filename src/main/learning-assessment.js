@@ -5,6 +5,9 @@ const { CHAPTERS, getChapter } = require('./learning-catalog');
 const ASSESSMENT_CONTRACT = 'learning-assessment/v1';
 const CURRICULUM_ASSESSMENT_CONTRACT = 'curriculum-assessment/v1';
 const CURRICULUM_DETAIL_CONTRACT = 'curriculum-detail-assessment/v1';
+const STAGE_RESULT_CONTRACT = 'learning-stage-result/v1';
+const OBJECTIVE_RESULT_CONTRACT = 'learning-objective-result/v1';
+const REVIEW_ASSESSMENT_CONTRACT = 'learning-review-assessment/v1';
 const ASSESSMENT_SCHEMA_VERSION = 1;
 const MANUAL_ADAPTER_ID = 'manual-handoff';
 const MAX_SOURCE_LENGTH = 60000;
@@ -369,6 +372,68 @@ function parseManualAssessmentResponse(request, rawResponse) {
   return normalizeAssessmentResult(request, extractJsonObject(rawResponse), MANUAL_ADAPTER_ID);
 }
 
+function parseStageResult(chapterId, stageId, rawResponse) {
+  const chapter = getChapter(chapterId);
+  if (!chapter.stages.some((stage) => stage.id === stageId)) throw new Error('invalid_stage_id');
+  const value = extractJsonObject(rawResponse);
+  if (value.contract !== STAGE_RESULT_CONTRACT || value.chapterId !== chapterId || value.stageId !== stageId) {
+    throw new Error('stage_result_mismatch');
+  }
+  const validIds = new Set(chapter.objectives.map((objective) => objective.id));
+  const achievedObjectives = Array.isArray(value.achievedObjectives) ? value.achievedObjectives : [];
+  const byId = new Map(achievedObjectives
+    .filter((item) => item && validIds.has(item.id))
+    .map((item) => [item.id, item]));
+  return {
+    contract: STAGE_RESULT_CONTRACT,
+    chapterId,
+    stageId,
+    achievedObjectives: chapter.objectives.map((objective) => {
+      const item = byId.get(objective.id);
+      const evidence = sanitizeText(item && item.evidence, MAX_EVIDENCE_LENGTH);
+      return { id: objective.id, achieved: Boolean(item && item.achieved === true && evidence), evidence: evidence || '달성 근거가 제공되지 않았습니다.' };
+    }),
+    stageFeedback: sanitizeText(value.stageFeedback, 2000),
+  };
+}
+
+function parseObjectiveResult(chapterId, objectiveId, rawResponse) {
+  const chapter = getChapter(chapterId);
+  if (!chapter.objectives.some((objective) => objective.id === objectiveId)) throw new Error('invalid_objective_id');
+  const value = extractJsonObject(rawResponse);
+  if (value.contract !== OBJECTIVE_RESULT_CONTRACT || value.chapterId !== chapterId || value.objectiveId !== objectiveId) {
+    throw new Error('objective_result_mismatch');
+  }
+  const evidence = sanitizeText(value.evidence, MAX_EVIDENCE_LENGTH);
+  return {
+    contract: OBJECTIVE_RESULT_CONTRACT,
+    chapterId,
+    objectiveId,
+    achieved: Boolean(value.achieved === true && evidence),
+    evidence: evidence || '달성 근거가 제공되지 않았습니다.',
+    feedback: sanitizeText(value.feedback, 2000),
+  };
+}
+
+function parseReviewResult(chapterId, objectiveId, rawResponse) {
+  const chapter = getChapter(chapterId);
+  if (!chapter.objectives.some((objective) => objective.id === objectiveId)) throw new Error('invalid_objective_id');
+  const value = extractJsonObject(rawResponse);
+  const grades = new Set(['correct', 'partial', 'incorrect']);
+  if (value.contract !== REVIEW_ASSESSMENT_CONTRACT || value.chapterId !== chapterId || value.objectiveId !== objectiveId) {
+    throw new Error('review_result_mismatch');
+  }
+  if (!grades.has(value.grade)) throw new Error('invalid_review_grade');
+  return {
+    contract: REVIEW_ASSESSMENT_CONTRACT,
+    chapterId,
+    objectiveId,
+    grade: value.grade,
+    evidence: sanitizeText(value.evidence, MAX_EVIDENCE_LENGTH),
+    feedback: sanitizeText(value.feedback, 2000),
+  };
+}
+
 const MANUAL_HANDOFF_ADAPTER = Object.freeze({
   id: MANUAL_ADAPTER_ID,
   mode: 'manual',
@@ -399,6 +464,9 @@ function getAssessmentCapability() {
       chapter: ASSESSMENT_CONTRACT,
       curriculum: CURRICULUM_ASSESSMENT_CONTRACT,
       curriculumDetail: CURRICULUM_DETAIL_CONTRACT,
+      stageResult: STAGE_RESULT_CONTRACT,
+      objectiveResult: OBJECTIVE_RESULT_CONTRACT,
+      review: REVIEW_ASSESSMENT_CONTRACT,
     },
     apiReady: true,
   };
@@ -409,6 +477,9 @@ module.exports = {
   ASSESSMENT_SCHEMA_VERSION,
   CURRICULUM_ASSESSMENT_CONTRACT,
   CURRICULUM_DETAIL_CONTRACT,
+  OBJECTIVE_RESULT_CONTRACT,
+  REVIEW_ASSESSMENT_CONTRACT,
+  STAGE_RESULT_CONTRACT,
   MANUAL_HANDOFF_ADAPTER,
   MANUAL_CURRICULUM_ADAPTER,
   MANUAL_CURRICULUM_DETAIL_ADAPTER,
@@ -419,5 +490,8 @@ module.exports = {
   normalizeAssessmentResult,
   normalizeCurriculumAssessmentResult,
   normalizeCurriculumDetailResult,
+  parseObjectiveResult,
+  parseReviewResult,
+  parseStageResult,
   parseManualAssessmentResponse,
 };

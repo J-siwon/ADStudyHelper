@@ -22,6 +22,10 @@ function providerLabel(provider) {
   return provider === 'claude' ? 'Claude' : 'ChatGPT';
 }
 
+function difficultyLabel(difficulty) {
+  return ({ basic: '기본', applied: '응용', advanced: '심화' })[difficulty] || difficulty;
+}
+
 function errorMessage(error) {
   const raw = error && error.message ? error.message : String(error);
   const messages = {
@@ -37,6 +41,12 @@ function errorMessage(error) {
     nothing_selected: '적용할 단계나 목표를 하나 이상 선택해 주세요.',
     curriculum_chapter_selection_required: '분석하거나 적용할 챕터를 하나 이상 선택해 주세요.',
     invalid_curriculum_chapter_ids: '선택한 챕터 목록이 올바르지 않습니다.',
+    stage_out_of_order: '현재 표시된 단계부터 순서대로 완료해 주세요.',
+    stage_result_mismatch: '현재 챕터·단계와 다른 AI 결과입니다.',
+    objective_result_mismatch: '현재 목표와 다른 AI 결과입니다.',
+    review_result_mismatch: '현재 복습 목표와 다른 AI 결과입니다.',
+    invalid_review_grade: '복습 판정 등급이 올바르지 않습니다.',
+    objective_already_completed: '이미 달성한 목표입니다.',
   };
   const key = Object.keys(messages).find((code) => raw.includes(code));
   return key ? messages[key] : raw;
@@ -51,6 +61,11 @@ export function initLearningApp() {
   let curriculumAssessmentPreview = null;
   let curriculumDetailPreviewData = null;
   let curriculumDetailChapterIds = [];
+  let stageResultPreview = null;
+  let objectiveSessionTarget = null;
+  let objectiveResultPreview = null;
+  let reviewTarget = null;
+  let reviewResultPreview = null;
 
   const views = [...document.querySelectorAll('[data-view]')];
   const navItems = [...document.querySelectorAll('.side-nav [data-view-target]')];
@@ -59,9 +74,8 @@ export function initLearningApp() {
   const priorLearningBtn = byId('priorLearningBtn');
   const chapterActionStatus = byId('chapterActionStatus');
   const sessionActionStatus = byId('sessionActionStatus');
-  const completionDialog = byId('completionDialog');
-  const completeChapterBtn = byId('completeChapterBtn');
-  const confirmCompleteBtn = byId('confirmCompleteBtn');
+  const completeStageBtn = byId('completeStageBtn');
+  const startStageBtn = byId('startStageBtn');
   const cancelChapterBtn = byId('cancelChapterBtn');
   const cancelLearningDialog = byId('cancelLearningDialog');
   const confirmCancelChapterBtn = byId('confirmCancelChapterBtn');
@@ -121,9 +135,10 @@ export function initLearningApp() {
     nodeTitle.textContent = chapterReference.title;
     const meta = document.createElement('small');
     const coverage = state.priorCoverage;
+    const achieved = state.checkedObjectiveIds.length;
     meta.textContent = coverage && coverage.level !== 'unseen' && state.status !== 'Completed'
-      ? `${statusLabel(state.status)} · ${coverageLevelLabel(coverage.level)} ${Math.round(coverage.confidence * 100)}%`
-      : statusLabel(state.status);
+      ? `${statusLabel(state.status)} · 목표 ${achieved}/5 · ${coverageLevelLabel(coverage.level)}`
+      : `${statusLabel(state.status)} · 목표 ${achieved}/5`;
     node.append(nodeTitle, meta);
     node.addEventListener('click', () => openChapter(chapterReference.id));
     return node;
@@ -172,33 +187,47 @@ export function initLearningApp() {
     const dueCount = byId('reviewDueCount');
     if (!list || !snapshot) return;
     const all = [
-      ...snapshot.reviews.due.map((review) => ({ ...review, due: true })),
-      ...snapshot.reviews.upcoming.map((review) => ({ ...review, due: false })),
-    ].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-    if (dueCount) dueCount.textContent = String(snapshot.reviews.due.length);
+      ...snapshot.reviews.due.map((review) => ({ ...review, due: true, kind: 'scheduled' })),
+      ...snapshot.reviews.recovery.map((review) => ({ ...review, due: true, kind: 'surprise' })),
+      ...snapshot.reviews.surprise.assignments
+        .filter((item) => item.status === 'pending' || item.multiplier < 1)
+        .map((review) => ({ ...review, due: true, kind: 'surprise' })),
+      ...snapshot.reviews.upcoming.map((review) => ({ ...review, due: false, kind: 'scheduled' })),
+    ].sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')));
+    if (dueCount) dueCount.textContent = String(all.filter((review) => review.due).length);
+    const surprise = snapshot.reviews.surprise;
+    if (byId('surpriseProgress')) byId('surpriseProgress').textContent = `이번 주 기습 질문 ${surprise.completed} / ${surprise.configuredTarget}`;
+    if (byId('surpriseDueDate')) byId('surpriseDueDate').textContent = surprise.dueDate ? `${surprise.dueDate}까지` : '';
     list.replaceChildren();
     if (!all.length) {
       const empty = document.createElement('p');
       empty.className = 'empty-state';
-      empty.textContent = '챕터를 완료하면 복습 일정이 등록됩니다.';
+      empty.textContent = '목표를 달성하면 목표별 복습 일정이 등록됩니다.';
       list.appendChild(empty);
       return;
     }
-    all.forEach((review) => {
-      const item = document.createElement('div');
+    all.slice(0, 12).forEach((review) => {
+      const item = document.createElement('button');
+      item.type = 'button';
       item.className = `review-item${review.due ? ' due' : ''}`;
       const name = document.createElement('span');
-      name.textContent = `${review.chapterTitle} · ${review.offsetDays}일 복습`;
+      name.className = 'review-item-copy';
+      const chapterName = document.createElement('strong');
+      chapterName.textContent = review.chapterTitle;
+      const objectiveName = document.createElement('small');
+      objectiveName.textContent = review.objectiveDescription;
+      name.append(chapterName, objectiveName);
       const date = document.createElement('strong');
-      date.textContent = review.due ? `복습 예정 · ${review.dueDate}` : review.dueDate;
+      date.textContent = review.kind === 'surprise' ? '기습 질문' : `${review.phaseLabel} · ${review.dueDate}`;
       item.append(name, date);
+      item.addEventListener('click', () => openReview(review, review.kind));
       list.appendChild(item);
     });
   }
 
   function checklistProgress(state, chapter) {
-    const checked = state.checkedStageIds.length + state.checkedObjectiveIds.length;
-    const total = chapter.stages.length + chapter.objectives.length;
+    const checked = state.checkedStageIds.length;
+    const total = chapter.stages.length;
     return total ? Math.round((checked / total) * 100) : 0;
   }
 
@@ -237,6 +266,22 @@ export function initLearningApp() {
     if (byId('releasedProgressText')) byId('releasedProgressText').textContent = `${progressInfo.completed} / ${progressInfo.total}`;
     const progressPercent = progressInfo.total ? Math.round((progressInfo.completed / progressInfo.total) * 100) : 0;
     byId('releasedProgressBar')?.style.setProperty('width', `${progressPercent}%`);
+
+    const rating = snapshot.rating;
+    if (byId('ratingTier')) byId('ratingTier').textContent = rating.tier.display;
+    if (byId('ratingRp')) byId('ratingRp').textContent = `${rating.effectiveRp} / ${rating.maxRp} RP`;
+    const nextProgress = rating.maxRp ? Math.min(100, (rating.effectiveRp / rating.maxRp) * 100) : 0;
+    byId('ratingProgressBar')?.style.setProperty('width', `${nextProgress}%`);
+    if (byId('ratingNextText')) {
+      byId('ratingNextText').textContent = rating.nextTier
+        ? `${rating.nextTier}까지 ${Math.max(0, rating.nextThresholdRp - rating.effectiveRp)} RP · 목표 ${rating.achievedObjectives}/${rating.totalObjectives}`
+        : `모든 목표 달성 · ${rating.maxRp} RP`;
+    }
+    const penalty = byId('ratingPenaltyText');
+    if (penalty) {
+      penalty.classList.toggle('is-hidden', rating.penaltyRp <= 0);
+      penalty.textContent = rating.penaltyRp > 0 ? `복습 페널티 -${rating.penaltyRp} RP · 지금 복습하면 회복할 수 있습니다.` : '';
+    }
   }
 
   function renderPrerequisites(chapter) {
@@ -274,11 +319,30 @@ export function initLearningApp() {
     const list = byId('objectivePreview');
     if (!list) return;
     list.replaceChildren();
+    const state = chapterState(chapter.id);
     chapter.objectives.forEach((objective) => {
-      const item = document.createElement('li');
-      item.textContent = objective.description;
+      const completed = state.checkedObjectiveIds.includes(objective.id);
+      const item = document.createElement('div');
+      item.className = `objective-row${completed ? ' completed' : ''}`;
+      const mark = document.createElement('span');
+      mark.className = 'objective-mark';
+      mark.textContent = completed ? '✓' : '○';
+      const copy = document.createElement('div');
+      const description = document.createElement('span');
+      description.textContent = objective.description;
+      const meta = document.createElement('small');
+      const rp = snapshot.balance.objectiveRp[objective.difficulty];
+      meta.textContent = `${difficultyLabel(objective.difficulty)} · ${rp} RP${completed ? ' · 달성 완료' : ''}`;
+      copy.append(description, meta);
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.textContent = completed ? '복습 일정' : '집중 학습';
+      action.disabled = completed;
+      if (!completed) action.addEventListener('click', () => startObjectiveFocus(chapter.id, objective.id));
+      item.append(mark, copy, action);
       list.appendChild(item);
     });
+    if (byId('chapterObjectiveCount')) byId('chapterObjectiveCount').textContent = `${state.checkedObjectiveIds.length} / ${chapter.objectives.length}`;
   }
 
   function renderChapter() {
@@ -293,13 +357,14 @@ export function initLearningApp() {
     renderObjectivePreview(chapter);
     renderPrerequisites(chapter);
 
+    const stagesComplete = state.checkedStageIds.length === chapter.stages.length;
     chapterStartBtn.textContent = state.status === 'Learning'
       ? '이어서 공부하기'
       : state.status === 'Progress'
         ? '남은 내용 이어서 시작'
-        : state.status === 'Completed' ? '완료됨' : '챕터 시작';
-    chapterStartBtn.disabled = state.status === 'Completed';
-    priorLearningBtn.disabled = state.status === 'Completed';
+        : stagesComplete ? '6단계 완료' : '챕터 시작';
+    chapterStartBtn.disabled = stagesComplete;
+    priorLearningBtn.disabled = false;
   }
 
   function renderChecklist(containerId, items, checkedIds, kind) {
@@ -330,20 +395,24 @@ export function initLearningApp() {
 
   function renderSession() {
     if (!snapshot) return;
-    const chapterId = snapshot.activeChapterId || selectedChapterId;
+    byId('stageRewardCard')?.classList.add('is-hidden');
+    const chapterId = selectedChapterId || snapshot.activeChapterId;
     const chapter = catalogChapter(chapterId);
     const state = chapterState(chapterId);
     if (!chapter || !state) return;
     selectedChapterId = chapterId;
     if (byId('sessionBreadcrumb')) byId('sessionBreadcrumb').textContent = `현재 학습 / ${chapter.path.join(' / ')}`;
     if (byId('sessionChapterTitle')) byId('sessionChapterTitle').textContent = chapter.title;
-    renderChecklist('stageChecklist', chapter.stages, state.checkedStageIds, 'stage');
-    renderChecklist('objectiveChecklist', chapter.objectives, state.checkedObjectiveIds, 'objective');
-    if (byId('stageCount')) byId('stageCount').textContent = `${state.checkedStageIds.length} / ${chapter.stages.length}`;
-    if (byId('objectiveCount')) byId('objectiveCount').textContent = `${state.checkedObjectiveIds.length} / ${chapter.objectives.length}`;
-    const complete = state.checkedStageIds.length === chapter.stages.length
-      && state.checkedObjectiveIds.length === chapter.objectives.length;
-    completeChapterBtn.disabled = !complete || state.status !== 'Learning';
+    const stage = chapter.stages.find((item) => !state.checkedStageIds.includes(item.id));
+    if (!stage) return;
+    if (byId('currentStageTitle')) byId('currentStageTitle').textContent = stage.title;
+    if (byId('currentStageDescription')) byId('currentStageDescription').textContent = stage.description;
+    if (byId('stageCount')) byId('stageCount').textContent = `${state.checkedStageIds.length + 1} / ${chapter.stages.length}`;
+    if (byId('objectiveCount')) byId('objectiveCount').textContent = `달성 목표 ${state.checkedObjectiveIds.length} / ${chapter.objectives.length}`;
+    completeStageBtn.dataset.stageId = stage.id;
+    const stageIsActive = state.status === 'Learning';
+    completeStageBtn.classList.toggle('is-hidden', !stageIsActive);
+    startStageBtn.classList.toggle('is-hidden', stageIsActive);
     cancelChapterBtn.disabled = state.status !== 'Learning';
     if (byId('providerHeading')) byId('providerHeading').textContent = `${providerLabel(snapshot.chatProvider)}에서 ${chapter.title} 학습 중`;
   }
@@ -398,8 +467,8 @@ export function initLearningApp() {
 
   byId('copyPromptBtn')?.addEventListener('click', async () => {
     try {
-      await api.copyPrompt(selectedChapterId);
-      setStatus(sessionActionStatus, '이 챕터의 맞춤 프롬프트를 다시 복사했습니다.');
+      await api.copyPrompt(selectedChapterId, completeStageBtn.dataset.stageId);
+      setStatus(sessionActionStatus, '현재 단계 프롬프트를 다시 복사했습니다.');
     } catch (error) {
       setStatus(sessionActionStatus, `복사 실패: ${errorMessage(error)}`, true);
     }
@@ -414,41 +483,198 @@ export function initLearningApp() {
     }
   });
 
-  async function saveChecklist() {
-    const checkedStageIds = [...document.querySelectorAll('[data-check-kind="stage"]:checked')].map((input) => input.value);
-    const checkedObjectiveIds = [...document.querySelectorAll('[data-check-kind="objective"]:checked')].map((input) => input.value);
-    document.querySelectorAll('[data-check-kind]').forEach((input) => { input.disabled = true; });
+  startStageBtn?.addEventListener('click', async () => {
+    startStageBtn.disabled = true;
+    setStatus(sessionActionStatus, '다음 단계 프롬프트를 복사하고 채팅을 여는 중…');
     try {
-      snapshot = await api.updateChecklist(selectedChapterId, { checkedStageIds, checkedObjectiveIds });
+      snapshot = await api.startChapter(selectedChapterId);
       render();
-      setStatus(sessionActionStatus, '진행 상태가 저장되었습니다.');
+      setStatus(sessionActionStatus, '현재 단계 프롬프트를 복사했습니다.');
     } catch (error) {
-      setStatus(sessionActionStatus, `진행 상태 저장 실패: ${errorMessage(error)}`, true);
-      await reload().catch(() => {});
+      setStatus(sessionActionStatus, errorMessage(error), true);
+    } finally {
+      startStageBtn.disabled = false;
     }
-  }
-  byId('stageChecklist')?.addEventListener('change', saveChecklist);
-  byId('objectiveChecklist')?.addEventListener('change', saveChecklist);
-
-  completeChapterBtn?.addEventListener('click', () => {
-    byId('sessionSummaryInput').value = '';
-    setStatus(byId('completionStatus'), '');
-    completionDialog?.showModal();
   });
 
-  confirmCompleteBtn?.addEventListener('click', async (event) => {
-    event.preventDefault();
-    confirmCompleteBtn.disabled = true;
-    setStatus(byId('completionStatus'), '완료 상태와 복습 일정을 저장하는 중…');
+  completeStageBtn?.addEventListener('click', () => {
+    stageResultPreview = null;
+    byId('stageResultInput').value = '';
+    byId('stageResultObjectives').replaceChildren();
+    byId('confirmStageResultBtn').disabled = true;
+    setStatus(byId('stageResultStatus'), '');
+    byId('stageResultDialog')?.showModal();
+  });
+
+  byId('previewStageResultBtn')?.addEventListener('click', async () => {
+    setStatus(byId('stageResultStatus'), 'AI 결과를 확인하는 중…');
     try {
-      snapshot = await api.completeChapter(selectedChapterId, byId('sessionSummaryInput').value);
-      completionDialog.close();
-      render();
-      showView('home');
+      stageResultPreview = await api.previewStageResult(
+        selectedChapterId,
+        completeStageBtn.dataset.stageId,
+        byId('stageResultInput').value
+      );
+      const chapter = catalogChapter(selectedChapterId);
+      const state = chapterState(selectedChapterId);
+      const container = byId('stageResultObjectives');
+      container.replaceChildren();
+      stageResultPreview.achievedObjectives.forEach((recommendation) => {
+        const objective = chapter.objectives.find((item) => item.id === recommendation.id);
+        if (state.checkedObjectiveIds.includes(objective.id)) return;
+        const label = document.createElement('label');
+        label.className = `check-item${recommendation.achieved ? ' checked' : ''}`;
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = objective.id;
+        input.dataset.stageResultObjective = 'true';
+        input.checked = recommendation.achieved;
+        const copy = document.createElement('span');
+        const title = document.createElement('strong');
+        title.textContent = `${difficultyLabel(objective.difficulty)} · ${snapshot.balance.objectiveRp[objective.difficulty]} RP`;
+        const description = document.createElement('small');
+        description.textContent = `${objective.description} · ${recommendation.evidence}`;
+        copy.append(title, description);
+        label.append(input, copy);
+        container.appendChild(label);
+      });
+      byId('confirmStageResultBtn').disabled = false;
+      setStatus(byId('stageResultStatus'), '제안된 목표를 직접 확인·수정한 뒤 확정하세요.');
     } catch (error) {
-      setStatus(byId('completionStatus'), `완료 실패: ${errorMessage(error)}`, true);
-    } finally {
-      confirmCompleteBtn.disabled = false;
+      stageResultPreview = null;
+      byId('confirmStageResultBtn').disabled = true;
+      setStatus(byId('stageResultStatus'), errorMessage(error), true);
+    }
+  });
+
+  byId('stageResultObjectives')?.addEventListener('change', (event) => {
+    event.target.closest('.check-item')?.classList.toggle('checked', event.target.checked);
+  });
+
+  byId('confirmStageResultBtn')?.addEventListener('click', async () => {
+    if (!stageResultPreview) return;
+    const button = byId('confirmStageResultBtn');
+    button.disabled = true;
+    const objectiveIds = [...document.querySelectorAll('[data-stage-result-objective]:checked')].map((input) => input.value);
+    const evidenceById = Object.fromEntries(stageResultPreview.achievedObjectives.map((item) => [item.id, item.evidence]));
+    try {
+      snapshot = await api.completeStage(selectedChapterId, completeStageBtn.dataset.stageId, objectiveIds, evidenceById);
+      byId('stageResultDialog').close();
+      const reward = snapshot.reward;
+      render();
+      const chapter = catalogChapter(selectedChapterId);
+      const state = chapterState(selectedChapterId);
+      if (state.status === 'Completed') {
+        showView('chapter');
+        setStatus(chapterActionStatus, `6단계를 완료했습니다. 새 목표 ${reward.objectiveIds.length}개 · +${reward.rp} RP`);
+      } else {
+        showView('session');
+        byId('stageRewardCard').classList.remove('is-hidden');
+        byId('stageRewardTitle').textContent = reward.previousTier.display === reward.tier.display
+          ? '단계 완료'
+          : `${reward.tier.display} 승급!`;
+        byId('stageRewardText').textContent = `새 목표 ${reward.objectiveIds.length}개 · +${reward.rp} RP · 현재 ${snapshot.rating.effectiveRp} RP`;
+      }
+    } catch (error) {
+      setStatus(byId('stageResultStatus'), errorMessage(error), true);
+      button.disabled = false;
+    }
+  });
+
+  byId('showNextStageBtn')?.addEventListener('click', () => {
+    byId('stageRewardCard').classList.add('is-hidden');
+    renderSession();
+  });
+
+  async function startObjectiveFocus(chapterId, objectiveId) {
+    const chapter = catalogChapter(chapterId);
+    const objective = chapter.objectives.find((item) => item.id === objectiveId);
+    objectiveSessionTarget = { chapterId, objectiveId };
+    objectiveResultPreview = null;
+    byId('objectiveResultTitle').textContent = `${chapter.title} · 목표 집중 학습`;
+    byId('objectiveResultInput').value = '';
+    byId('objectiveResultEvidence').textContent = objective.description;
+    byId('confirmObjectiveResultBtn').disabled = true;
+    setStatus(byId('objectiveResultStatus'), '프롬프트를 복사하고 채팅 사이트를 여는 중…');
+    byId('objectiveResultDialog')?.showModal();
+    try {
+      await api.startObjectiveSession(chapterId, objectiveId);
+      setStatus(byId('objectiveResultStatus'), '목표 집중 프롬프트를 복사했습니다. 학습 후 JSON을 붙여넣으세요.');
+    } catch (error) {
+      setStatus(byId('objectiveResultStatus'), errorMessage(error), true);
+    }
+  }
+
+  byId('previewObjectiveResultBtn')?.addEventListener('click', async () => {
+    if (!objectiveSessionTarget) return;
+    try {
+      objectiveResultPreview = await api.previewObjectiveResult(
+        objectiveSessionTarget.chapterId,
+        objectiveSessionTarget.objectiveId,
+        byId('objectiveResultInput').value
+      );
+      byId('objectiveResultEvidence').textContent = `${objectiveResultPreview.evidence} ${objectiveResultPreview.feedback}`;
+      byId('confirmObjectiveResultBtn').disabled = !objectiveResultPreview.achieved;
+      setStatus(byId('objectiveResultStatus'), objectiveResultPreview.achieved ? '달성 근거를 확인하고 확정하세요.' : 'AI가 아직 목표 달성을 인정하지 않았습니다.', !objectiveResultPreview.achieved);
+    } catch (error) {
+      setStatus(byId('objectiveResultStatus'), errorMessage(error), true);
+    }
+  });
+
+  byId('confirmObjectiveResultBtn')?.addEventListener('click', async () => {
+    if (!objectiveSessionTarget || !objectiveResultPreview?.achieved) return;
+    try {
+      snapshot = await api.completeObjectiveSession(objectiveSessionTarget.chapterId, objectiveSessionTarget.objectiveId, objectiveResultPreview.evidence);
+      byId('objectiveResultDialog').close();
+      render();
+      setStatus(chapterActionStatus, `목표 달성 · +${snapshot.reward.rp} RP · ${snapshot.rating.tier.display}`);
+    } catch (error) {
+      setStatus(byId('objectiveResultStatus'), errorMessage(error), true);
+    }
+  });
+
+  async function openReview(review, kind) {
+    reviewTarget = { ...review, kind };
+    reviewResultPreview = null;
+    byId('reviewResultTitle').textContent = `${review.chapterTitle} · ${review.phaseLabel}`;
+    byId('reviewResultInput').value = '';
+    byId('reviewResultEvidence').textContent = review.objectiveDescription;
+    byId('confirmReviewResultBtn').disabled = true;
+    setStatus(byId('reviewResultStatus'), '복습 프롬프트를 준비하는 중…');
+    byId('reviewResultDialog')?.showModal();
+    try {
+      await api.startReview({ ...review, retry: review.multiplier < 1 });
+      setStatus(byId('reviewResultStatus'), '복습 프롬프트를 복사했습니다. 답변 후 JSON을 붙여넣으세요.');
+    } catch (error) {
+      setStatus(byId('reviewResultStatus'), errorMessage(error), true);
+    }
+  }
+
+  byId('previewReviewResultBtn')?.addEventListener('click', async () => {
+    if (!reviewTarget) return;
+    try {
+      reviewResultPreview = await api.previewReviewResult(reviewTarget.chapterId, reviewTarget.objectiveId, byId('reviewResultInput').value);
+      byId('reviewGradeSelect').value = reviewResultPreview.grade;
+      byId('reviewResultEvidence').textContent = `${reviewResultPreview.evidence} ${reviewResultPreview.feedback}`;
+      byId('confirmReviewResultBtn').disabled = false;
+      setStatus(byId('reviewResultStatus'), 'AI 판정을 확인하거나 수정한 뒤 확정하세요.');
+    } catch (error) {
+      setStatus(byId('reviewResultStatus'), errorMessage(error), true);
+    }
+  });
+
+  byId('confirmReviewResultBtn')?.addEventListener('click', async () => {
+    if (!reviewTarget || !reviewResultPreview) return;
+    try {
+      snapshot = await api.completeReview(
+        reviewTarget.chapterId,
+        reviewTarget.objectiveId,
+        byId('reviewGradeSelect').value,
+        reviewTarget.kind
+      );
+      byId('reviewResultDialog').close();
+      render();
+    } catch (error) {
+      setStatus(byId('reviewResultStatus'), errorMessage(error), true);
     }
   });
 

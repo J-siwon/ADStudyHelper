@@ -7,6 +7,9 @@ const {
   ASSESSMENT_CONTRACT,
   CURRICULUM_ASSESSMENT_CONTRACT,
   CURRICULUM_DETAIL_CONTRACT,
+  OBJECTIVE_RESULT_CONTRACT,
+  REVIEW_ASSESSMENT_CONTRACT,
+  STAGE_RESULT_CONTRACT,
   MANUAL_HANDOFF_ADAPTER,
   MANUAL_CURRICULUM_ADAPTER,
   MANUAL_CURRICULUM_DETAIL_ADAPTER,
@@ -14,6 +17,9 @@ const {
   createCurriculumAssessmentRequest,
   createCurriculumDetailRequest,
   getAssessmentCapability,
+  parseObjectiveResult,
+  parseReviewResult,
+  parseStageResult,
 } = require('../src/main/learning-assessment');
 
 function resultFor(chapterId) {
@@ -101,9 +107,43 @@ describe('수동 판정 결과 정규화', () => {
         chapter: ASSESSMENT_CONTRACT,
         curriculum: CURRICULUM_ASSESSMENT_CONTRACT,
         curriculumDetail: CURRICULUM_DETAIL_CONTRACT,
+        stageResult: STAGE_RESULT_CONTRACT,
+        objectiveResult: OBJECTIVE_RESULT_CONTRACT,
+        review: REVIEW_ASSESSMENT_CONTRACT,
       },
       apiReady: true,
     });
+  });
+});
+
+describe('단계·목표·복습 결과 계약', () => {
+  it('현재 단계의 목표 달성 제안을 전체 목표 목록으로 정규화한다', () => {
+    const result = parseStageResult('cpp', 'discovery', JSON.stringify({
+      contract: STAGE_RESULT_CONTRACT,
+      chapterId: 'cpp',
+      stageId: 'discovery',
+      achievedObjectives: [{ id: 'cpp-objective-1', achieved: true, evidence: '직접 설명함' }],
+      stageFeedback: '좋음',
+    }));
+    assert.equal(result.achievedObjectives.length, 5);
+    assert.equal(result.achievedObjectives[0].achieved, true);
+    assert.ok(result.achievedObjectives.slice(1).every((item) => item.achieved === false));
+  });
+
+  it('목표 집중 결과와 복습 등급의 대상 불일치를 거부한다', () => {
+    assert.throws(() => parseObjectiveResult('cpp', 'cpp-objective-1', JSON.stringify({
+      contract: OBJECTIVE_RESULT_CONTRACT,
+      chapterId: 'csharp',
+      objectiveId: 'cpp-objective-1',
+      achieved: true,
+      evidence: '근거',
+    })), /objective_result_mismatch/);
+    assert.throws(() => parseReviewResult('cpp', 'cpp-objective-1', JSON.stringify({
+      contract: REVIEW_ASSESSMENT_CONTRACT,
+      chapterId: 'cpp',
+      objectiveId: 'cpp-objective-1',
+      grade: 'excellent',
+    })), /invalid_review_grade/);
   });
 });
 

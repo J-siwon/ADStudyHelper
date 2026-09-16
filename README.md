@@ -11,6 +11,9 @@ ADHD 사용자를 위한 집중력 향상 데스크톱 앱 (Electron 기반).
 - 크롬 확장과 WebSocket(포트 47615)으로 연동해 현재 탭 URL 기반 판정
 - 허용 앱 / URL 패턴 목록을 대시보드에서 편집 및 저장
 - 오늘 누적 집중 시간(초) 영속화
+- 게임 개발 커리큘럼 40개 챕터·200개 목표를 단계별로 학습하고 진행 상태 저장
+- ChatGPT 또는 Claude와 수동으로 연동해 단계·목표·복습 결과를 사용자가 확인한 뒤 반영
+- 목표 난이도별 RP, 티어, 1·3·7·30일 복습과 주간 기습 질문 제공
 
 ## 설치 및 실행
 
@@ -35,6 +38,21 @@ npm start
 ```
 
 대시보드 창이 열립니다. 시스템 트레이 아이콘에서 종료할 수 있습니다.
+
+### 게임 개발 학습
+
+대시보드의 학습 화면은 40개 챕터와 챕터별 6단계, 전체 200개 목표를 제공합니다. 여러 챕터를 동시에 진행할 수 있으며 단계가 끝나도 아직 달성하지 못한 목표는 별도 집중 학습으로 이어갈 수 있습니다.
+
+1. 학습할 챕터와 현재 단계를 선택합니다.
+2. 앱이 맞춤 프롬프트를 클립보드에 복사하고 설정된 ChatGPT 또는 Claude 채팅을 엽니다.
+3. 외부 AI가 마지막에 생성한 JSON 결과를 앱에 붙여넣습니다.
+4. 앱에서 제안된 단계·목표·복습 판정을 확인하거나 수정한 뒤 직접 확정합니다.
+
+앱은 외부 채팅 내용을 자동으로 읽지 않으며, AI의 제안만으로 학습 상태나 RP를 변경하지 않습니다. 이전 학습 기록은 전체 40개 챕터의 범위를 먼저 분류한 뒤 선택한 챕터를 단계·목표 단위로 상세 판정해 가져올 수 있습니다. 판정 계약과 수동 연동 경계는 [`docs/learning-assessment-adapters.md`](docs/learning-assessment-adapters.md)에 정리되어 있습니다.
+
+목표를 처음 달성하면 난이도에 따라 RP를 얻고, 이후 목표별 복습 결과가 유효 RP와 티어에 반영됩니다. 기본 복습 간격은 1일·3일·7일·30일이며, 장기 복습을 통과한 목표는 주간 기습 질문 대상이 됩니다. 세부 규칙과 조정 방법은 [`docs/learning-rating.md`](docs/learning-rating.md)를 참고하세요.
+
+개발 체크아웃에서는 `config/learning-rating.json`을 수정한 뒤 앱을 재시작합니다. 포터블 배포물에서는 EXE 옆의 `learning-rating.json`을 수정하고 `apply-learning-balance.bat`을 실행한 뒤 앱을 재시작합니다. 잘못된 설정은 적용하지 않고 내장 기본값으로 돌아갑니다.
 
 ### Codex 작업 상태 연동
 
@@ -75,6 +93,14 @@ npm test
 npm run check
 ```
 
+### Windows 포터블 빌드
+
+```bash
+npm run dist
+```
+
+포터블 EXE와 함께 학습 밸런스 템플릿 `learning-rating.json` 및 적용 도구 `apply-learning-balance.bat`이 `dist/`에 복사됩니다.
+
 ### BREAK 임계값 단축 (테스트용)
 
 ```bash
@@ -100,45 +126,11 @@ FOCUS_BREAK_SEC=5 npm start
 - **허용 앱**: 프로세스 이름 한 줄에 하나씩 (예: `Code`, `WindowsTerminal`)
 - **허용 URL 패턴**: 부분 문자열 또는 와일드카드(`*`) 패턴 (예: `github.com/*`, `docs.google.com`)
 
-## 프로젝트 구조
-
-```
-ADStudyHelper/
-├── src/
-│   ├── main/
-│   │   ├── index.js          # 메인 프로세스 (통합 진입점)
-│   │   ├── tracker.js        # 활성 창 폴링
-│   │   ├── chromeBridge.js   # WebSocket 브리지
-│   │   ├── whitelist.js      # WORK/BREAK 판정
-│   │   ├── focusState.js     # 집중 상태 머신
-│   │   ├── store.js          # 영속화 (electron-store)
-│   │   └── petWindow.js      # 펫 창 (공부/자기/방방 알림)
-│   ├── preload/
-│   │   ├── index.js          # 대시보드 preload (focusAPI)
-│   │   └── pet.js            # 펫 창 preload (petAPI)
-│   └── renderer/
-│       ├── index.html        # 대시보드 HTML
-│       ├── renderer.js       # 대시보드 렌더러 스크립트
-│       ├── pet.html          # 펫 창 HTML
-│       ├── pet.js            # 펫 창 렌더러 스크립트
-│       └── pet.css           # 펫 창 스타일/애니메이션
-├── test/
-│   ├── whitelist.test.js     # whitelist.evaluate 단위 테스트
-│   └── focusState.test.js    # FocusState 단위 테스트
-├── scripts/
-│   ├── claude-hook.js        # Claude Code 작업 상태 훅
-│   ├── codex-hook.js         # Codex 작업 상태 훅
-│   ├── install-codex-hook.js # Codex 사용자 훅 설치/제거
-│   └── verify-codex-hook.js  # 실제 Codex 세션 연동 점검
-├── CONTRACTS.md              # 모듈 인터페이스 계약
-└── package.json
-```
-
 ## Phase 2 기능 (선택사항)
 
 ### 웹캠 시선 추적 (F1)
 
-카메라 추적을 켜면 얼굴이 없거나 시선이 화면을 벗어났을 때 BREAK로 강제 판정합니다.
+카메라 추적을 켜면 얼굴 미감지 또는 화면 밖 응시가 5초 동안 연속될 때 BREAK로 강제 판정합니다. 5초 안에 화면을 다시 보거나 카메라 연결이 끊기면 이탈 누적을 초기화하고 앱/URL 판정으로 돌아갑니다.
 
 1. 대시보드 설정 패널에서 **카메라 추적** 토글을 켬
 2. 앱 처음 실행 시 브라우저 카메라 권한 요청이 뜨면 허용
@@ -202,7 +194,11 @@ ADStudyHelper/
 │   │   ├── gazeManager.js      # 웹캠 시선 추적 (Phase 2)
 │   │   ├── awayManager.js      # 자리 비움 감지 (Phase 2)
 │   │   ├── notifier.js         # 폰 알림 전송 (Phase 2)
-│   │   └── controlServer.js    # 폰 제어 HTTP 서버 (Phase 2)
+│   │   ├── controlServer.js    # 폰 제어 HTTP 서버 (Phase 2)
+│   │   ├── learning-catalog.js # 40개 챕터·200개 목표 카탈로그
+│   │   ├── learning.js         # 단계·목표·RP·복습 상태
+│   │   ├── learning-balance.js # RP·티어·복습 밸런스 검증
+│   │   └── learning-assessment.js # 외부 AI 수동 판정 계약
 │   ├── preload/
 │   │   ├── index.js            # 대시보드 preload (focusAPI)
 │   │   ├── pet.js              # 펫 창 preload (petAPI)
@@ -214,12 +210,22 @@ ADStudyHelper/
 │       ├── pet.js              # 펫 창 렌더러
 │       ├── pet.css             # 펫 창 스타일/애니메이션
 │       ├── gaze.html           # 시선 추적 창 HTML
-│       └── gaze.js             # 시선 추적 렌더러
+│       ├── gaze.js             # 시선 추적 렌더러
+│       ├── learning-app.js     # 학습 화면 상태와 상호작용
+│       └── styles.css          # 대시보드·학습 화면 스타일
+├── config/
+│   └── learning-rating.json    # 개발용 학습 밸런스 설정
+├── docs/
+│   ├── learning-assessment-adapters.md # 외부 AI 판정 계약
+│   └── learning-rating.md      # RP·티어·복습 규칙
 ├── test/
 │   ├── whitelist.test.js       # whitelist 단위 테스트
 │   ├── focusState.test.js      # FocusState 단위 테스트
 │   ├── away.test.js            # awayManager 단위 테스트
-│   └── notifier.test.js        # notifier 단위 테스트
+│   ├── notifier.test.js        # notifier 단위 테스트
+│   ├── learning.test.js        # 학습 상태·RP·복습 테스트
+│   └── learningBalance.test.js # 학습 밸런스 검증 테스트
+├── apply-learning-balance.bat  # 포터블 밸런스 적용 도구
 ├── CONTRACTS.md                # 모듈 인터페이스 계약
 ├── PHASE2-PLAN.md              # Phase 2 기능 사양
 └── package.json

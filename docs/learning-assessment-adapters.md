@@ -18,6 +18,14 @@
 1. 표준 판정 요청을 외부 채팅에 붙여넣을 프롬프트로 변환한다.
 2. 사용자가 붙여넣은 JSON을 `learning-assessment/v1` 결과로 정규화한다.
 
+단계별 학습과 복습도 같은 수동 확인 경계를 사용한다.
+
+- `learning-stage-result/v1`: 현재 단계에서 새로 달성했다고 제안된 목표와 근거
+- `learning-objective-result/v1`: 미달성 목표 집중 세션의 달성 제안
+- `learning-review-assessment/v1`: 목표별 복습 답변의 정답·부분정답·오답 판정
+
+세 결과 모두 외부 AI의 제안만으로 상태를 변경하지 않는다. 렌더러에서 사용자가 결과를 확인하거나 수정한 뒤 별도 완료 IPC를 호출해야 RP와 복습 상태가 저장된다.
+
 클립보드 복사와 채팅 사이트 열기는 `src/main/index.js`의 `learning:preparePriorAssessment` IPC가 담당한다.
 
 ## API 어댑터가 담당할 부분
@@ -60,6 +68,6 @@ API key 저장, 네트워크 동의와 원문 전송 고지는 API 도입 시 �
 전체 불러오기는 두 어댑터로 나뉜다.
 
 1. `MANUAL_CURRICULUM_ADAPTER`는 40개 챕터를 `unseen`, `familiar`, `practiced`, `applied`로 분류한다. 이 결과는 coverage 표시만 갱신하고 체크리스트나 완료 상태를 바꾸지 않는다.
-2. `MANUAL_CURRICULUM_DETAIL_ADAPTER`는 사용자가 선택한 챕터만 단계·목표 단위로 판정한다. 부분 결과는 `Progress`, 모든 항목을 승인한 결과만 `Completed`가 된다.
+2. `MANUAL_CURRICULUM_DETAIL_ADAPTER`는 사용자가 선택한 챕터만 단계·목표 단위로 판정한다. 일부 단계만 승인하면 `Progress`, 6단계를 모두 승인하면 `Completed`가 된다. 이때 미달성 목표는 그대로 남고 이후 목표 집중 학습으로 달성할 수 있다.
 
 API 전환 시에도 범위 분석과 상세 판정을 분리하면 낮은 비용의 모델로 전체 분류를 수행한 뒤 필요한 챕터만 정밀 모델에 전달할 수 있다.

@@ -596,10 +596,17 @@ body { overflow: hidden; }
 .linear-progress span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #a06bff); transition: width .25s; }
 .summary-card .text-btn { margin-top: 16px; }
 .summary-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; }
+.rating-card { border-color: rgba(124, 131, 253, .42); }
+.rating-card h3 { color: #d9dbff; font-size: 22px; }
+.rating-penalty { margin-top: 9px; color: #ffad7a; font-size: 11px; }
+.surprise-summary { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; padding: 10px; background: rgba(124, 131, 253, .08); border-radius: 9px; font-size: 11px; }
+.surprise-summary small { color: var(--text-dim); }
 .review-list { display: flex; flex-direction: column; gap: 8px; }
-.review-item { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.review-item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; color: var(--text); background: transparent; border: 0; border-bottom: 1px solid var(--border); text-align: left; font-size: 12px; cursor: pointer; }
 .review-item:last-child { border-bottom: 0; }
 .review-item.due strong { color: var(--break-color); }
+.review-item-copy { display: flex; flex-direction: column; gap: 3px; }
+.review-item-copy small { color: var(--text-dim); font-size: 10px; }
 .empty-state { color: var(--text-dim); font-size: 12px; padding: 10px 0; }
 
 .curriculum-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -627,8 +634,13 @@ body { overflow: hidden; }
 .chapter-description { margin-top: 10px; color: #b2b6cd; }
 .chapter-section { margin-top: 30px; }
 .chapter-section h3 { margin-bottom: 11px; font-size: 14px; color: var(--text-dim); }
-.objective-preview { display: flex; flex-direction: column; gap: 8px; list-style: none; }
-.objective-preview li::before { content: '○'; margin-right: 9px; color: var(--accent); }
+.objective-preview { display: flex; flex-direction: column; gap: 8px; }
+.objective-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; padding: 10px; color: var(--text); background: rgba(14, 16, 28, .35); border: 1px solid var(--border); border-radius: 9px; text-align: left; }
+.objective-row button { color: var(--accent); background: transparent; }
+.objective-row.completed { border-color: rgba(67, 233, 123, .28); }
+.objective-row .objective-mark { color: var(--accent); }
+.objective-row.completed .objective-mark { color: var(--work-color); }
+.objective-row small { display: block; margin-top: 3px; color: var(--text-dim); font-size: 10px; }
 .chapter-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
 .action-status { color: var(--text-dim); font-size: 11px; }
 .action-status.error { color: #ff8e8e; }
@@ -646,6 +658,13 @@ body { overflow: hidden; }
 .handoff-card p:not(.eyebrow) { color: var(--text-dim); font-size: 12px; }
 .handoff-actions { display: flex; gap: 8px; }
 .handoff-card > .action-status { grid-column: 1 / -1; }
+.current-stage-card { margin-top: 18px; padding: clamp(24px, 4vw, 38px); background: rgba(35, 38, 57, .92); border: 1px solid rgba(124, 131, 253, .42); border-radius: 14px; }
+.current-stage-card > p { color: #c6c9da; line-height: 1.7; }
+.stage-objective-summary { display: flex; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 18px; color: var(--text-dim); border-top: 1px solid var(--border); font-size: 11px; }
+.stage-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
+.reward-card { margin-top: 16px; padding: 18px 22px; background: linear-gradient(135deg, rgba(67, 233, 123, .13), rgba(124, 131, 253, .14)); border: 1px solid rgba(67, 233, 123, .32); border-radius: 12px; }
+.reward-card p { margin: 5px 0 10px; color: #c9cde2; font-size: 12px; }
+.result-objective-list { max-height: 260px; margin-top: 14px; overflow-y: auto; }
 .checklist { display: flex; flex-direction: column; gap: 7px; }
 .check-item { display: grid; grid-template-columns: 22px 1fr; gap: 9px; padding: 10px; border: 1px solid var(--border); border-radius: 9px; cursor: pointer; transition: background .16s, border-color .16s; }
 .check-item:hover { border-color: var(--accent-dim); }

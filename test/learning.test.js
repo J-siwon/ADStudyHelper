@@ -4,301 +4,251 @@ const assert = require('node:assert/strict');
 const { describe, it } = require('node:test');
 const { CHAPTERS, getChapter } = require('../src/main/learning-catalog');
 const {
-  ACTIVE_CHAPTER_ID,
-  REVIEW_OFFSETS,
-  applyCurriculumCoverage,
+  LEARNING_VERSION,
   applyCurriculumDetailAssessments,
-  applyPriorLearningAssessment,
   buildLearningPrompt,
-  cancelChapter,
-  completeChapter,
+  buildObjectiveFocusPrompt,
+  buildReviewPrompt,
+  calculateRating,
+  completeObjectiveSession,
+  completeStage,
   createDefaultLearningState,
   getSnapshot,
+  gradeObjectiveReview,
   normalizeLearningState,
   startChapter,
-  updateChecklist,
 } = require('../src/main/learning');
 
-function completeChecklist(state, chapterId) {
+function startAndCompleteStage(state, chapterId, stageIndex, objectiveIds = [], now = new Date('2026-09-01T10:00:00')) {
   const chapter = getChapter(chapterId);
-  return updateChecklist(state, chapterId, {
-    checkedStageIds: chapter.stages.map((stage) => stage.id),
-    checkedObjectiveIds: chapter.objectives.map((objective) => objective.id),
-  });
+  const started = startChapter(state, chapterId, now);
+  return completeStage(started, chapterId, chapter.stages[stageIndex].id, objectiveIds, {}, now).state;
 }
 
-function assessmentFor(chapterId) {
+function makeAssessment(chapterId) {
   const chapter = getChapter(chapterId);
   return {
-    contract: 'learning-assessment/v1',
-    adapterId: 'manual-handoff',
-    chapterId,
-    overallSummary: `${chapter.title} 이전 학습 요약`,
-    stageRecommendations: chapter.stages.map((stage) => ({ id: stage.id, completed: true, evidence: `${stage.title} 근거` })),
-    objectiveRecommendations: chapter.objectives.map((objective) => ({ id: objective.id, completed: true, evidence: `${objective.description} 근거` })),
+    adapterId: 'manual-handoff', chapterId, overallSummary: '이전 학습',
+    stageRecommendations: chapter.stages.map((stage) => ({ id: stage.id, completed: true, evidence: '단계 근거' })),
+    objectiveRecommendations: chapter.objectives.map((objective) => ({ id: objective.id, completed: true, evidence: '목표 근거' })),
   };
 }
 
-describe('전체 학습 카탈로그와 기본 상태', () => {
-  it('노출된 40개 챕터가 모두 Ready 상태다', () => {
-    const state = createDefaultLearningState();
+describe('목표 중심 카탈로그와 RP', () => {
+  it('40개 챕터와 200개 목표가 난이도와 고유 ID를 가진다', () => {
     assert.equal(CHAPTERS.length, 40);
-    assert.equal(Object.keys(state.chapters).length, 40);
-    assert.ok(CHAPTERS.every((chapter) => state.chapters[chapter.id].status === 'Ready'));
-  });
-
-  it('모든 챕터에 고유 목표 5개, 맞춤 단계 6개와 학습 프롬프트가 있다', () => {
-    const prompts = new Set();
-    for (const chapter of CHAPTERS) {
-      assert.equal(chapter.objectives.length, 5, chapter.id);
-      assert.equal(chapter.stages.length, 6, chapter.id);
-      assert.equal(new Set(chapter.objectives.map((objective) => objective.id)).size, 5, chapter.id);
-      const prompt = buildLearningPrompt(chapter.id);
-      assert.match(prompt, new RegExp(chapter.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-      assert.ok(prompt.includes(chapter.learningPlan.final));
-      prompts.add(prompt);
+    const objectives = CHAPTERS.flatMap((chapter) => chapter.objectives);
+    assert.equal(objectives.length, 200);
+    assert.equal(new Set(objectives.map((objective) => objective.id)).size, 200);
+    assert.ok(objectives.every((objective) => ['basic', 'applied', 'advanced'].includes(objective.difficulty)));
+    for (const difficulty of ['basic', 'applied', 'advanced']) {
+      assert.ok(objectives.some((objective) => objective.difficulty === difficulty));
     }
-    assert.equal(prompts.size, CHAPTERS.length);
   });
 
-  it('전체 6개 영역과 40개 제공 챕터 진행도를 반환한다', () => {
-    const snapshot = getSnapshot(createDefaultLearningState());
-    assert.equal(snapshot.curriculum.length, 6);
-    assert.equal(snapshot.chapterCatalog.length, 40);
-    assert.deepEqual(snapshot.releasedProgress, { completed: 0, total: 40 });
+  it('기본 밸런스에서 목표 난이도의 합으로 최대 RP를 계산한다', () => {
+    const snapshot = getSnapshot(createDefaultLearningState(), new Date('2026-09-01T10:00:00'));
+    const objectives = CHAPTERS.flatMap((chapter) => chapter.objectives);
+    const counts = objectives.reduce((result, objective) => ({
+      ...result,
+      [objective.difficulty]: result[objective.difficulty] + 1,
+    }), { basic: 0, applied: 0, advanced: 0 });
+    const expected = objectives
+      .reduce((sum, objective) => sum + snapshot.balance.objectiveRp[objective.difficulty], 0);
+    assert.deepEqual(counts, { basic: 20, applied: 151, advanced: 29 });
+    assert.equal(expected, 4090);
+    assert.equal(snapshot.rating.maxRp, expected);
+    assert.equal(snapshot.rating.earnedRp, 0);
+    assert.equal(snapshot.rating.tier.display, '브론즈 5');
+    assert.equal(snapshot.rating.nextTier, '브론즈 4');
+  });
+});
+
+describe('단계별 학습과 여러 챕터 진행', () => {
+  it('두 챕터를 동시에 중간 진행 상태로 유지할 수 있다', () => {
+    let state = startChapter(createDefaultLearningState(), 'cpp');
+    state = startChapter(state, 'csharp');
+    assert.equal(state.chapters.cpp.status, 'Learning');
+    assert.equal(state.chapters.csharp.status, 'Learning');
+    assert.equal(state.activeChapterId, 'csharp');
   });
 
-  it('모든 챕터가 커리큘럼에 중복이나 누락 없이 한 번씩 노출된다', () => {
-    const snapshot = getSnapshot(createDefaultLearningState());
-    const curriculumIds = snapshot.curriculum.flatMap((area) => area.topics.flatMap((topic) => (
-      topic.chapters ? topic.chapters.map((chapter) => chapter.id) : [topic.id]
-    )));
-    assert.equal(new Set(curriculumIds).size, curriculumIds.length);
-    assert.deepEqual(curriculumIds.toSorted(), CHAPTERS.map((chapter) => chapter.id).toSorted());
+  it('현재 단계만 순서대로 완료하고 목표 최초 달성에만 RP를 준다', () => {
+    const chapter = getChapter('inventory');
+    const objective = chapter.objectives[0];
+    let state = startChapter(createDefaultLearningState(), chapter.id);
+    assert.throws(() => completeStage(state, chapter.id, chapter.stages[1].id), /stage_out_of_order/);
+
+    let result = completeStage(state, chapter.id, chapter.stages[0].id, [objective.id]);
+    state = result.state;
+    assert.deepEqual(result.newlyAchievedObjectiveIds, [objective.id]);
+    const firstRp = calculateRating(state).earnedRp;
+    assert.equal(firstRp, getSnapshot(state).balance.objectiveRp[objective.difficulty]);
+
+    state = startChapter(state, chapter.id);
+    result = completeStage(state, chapter.id, chapter.stages[1].id, [objective.id]);
+    assert.deepEqual(result.newlyAchievedObjectiveIds, []);
+    assert.equal(calculateRating(result.state).earnedRp, firstRp);
   });
 
-  it('v1 Alignment 체크를 새 ID로 옮기고 체험용 완료는 Ready로 되돌린다', () => {
+  it('6단계가 끝나면 미달성 목표가 있어도 챕터 사이클을 완료한다', () => {
+    const chapter = getChapter('game-math');
+    let state = createDefaultLearningState();
+    for (let index = 0; index < chapter.stages.length; index += 1) {
+      state = startAndCompleteStage(state, chapter.id, index, index === 0 ? [chapter.objectives[0].id] : []);
+    }
+    assert.equal(state.chapters[chapter.id].status, 'Completed');
+    assert.equal(state.chapters[chapter.id].checkedObjectiveIds.length, 1);
+
+    const focused = completeObjectiveSession(state, chapter.id, chapter.objectives[1].id, '직접 계산 근거');
+    assert.deepEqual(focused.newlyAchievedObjectiveIds, [chapter.objectives[1].id]);
+    assert.equal(focused.state.chapters[chapter.id].checkedObjectiveIds.length, 2);
+  });
+
+  it('단계 프롬프트는 현재 단계만 진행하고 다음 단계는 예고로 끝낸다', () => {
+    const prompt = buildLearningPrompt('inventory', 'principle');
+    assert.match(prompt, /"원리 이해" 단계만 학습/);
+    assert.match(prompt, /다음 학습 예고:/);
+    assert.match(prompt, /현재 단계 밖의 다음 학습을 실제로 시작하지 마세요/);
+    assert.match(prompt, /learning-stage-result\/v1/);
+    assert.doesNotMatch(prompt, /ChatGPT|Claude|API key/i);
+    assert.match(buildObjectiveFocusPrompt('inventory', 'inventory-objective-3'), /이 목표 하나만/);
+  });
+});
+
+describe('마이그레이션과 이전 학습 가져오기', () => {
+  it('v2 완료 시각과 목표 체크를 목표별 복습으로 옮긴다', () => {
+    const chapter = getChapter('cpp');
     const state = normalizeLearningState({
-      version: 1,
-      activeChapterId: ACTIVE_CHAPTER_ID,
+      version: 2,
       chapters: {
-        'data-type': { status: 'Completed', completionSource: 'demo_seed' },
-        [ACTIVE_CHAPTER_ID]: {
-          status: 'Learning',
-          checkedStageIds: ['discovery'],
-          checkedObjectiveIds: ['define-alignment'],
+        cpp: {
+          status: 'Completed',
+          checkedStageIds: chapter.stages.map((stage) => stage.id),
+          checkedObjectiveIds: [chapter.objectives[0].id],
+          completedAt: '2026-08-01T12:00:00.000Z',
+          completionSource: 'learning_session',
         },
       },
-    });
-    assert.equal(state.version, 2);
-    assert.equal(state.chapters['data-type'].status, 'Ready');
-    assert.equal(state.activeChapterId, ACTIVE_CHAPTER_ID);
-    assert.deepEqual(state.chapters[ACTIVE_CHAPTER_ID].checkedObjectiveIds, ['memory-alignment-objective-1']);
-  });
-});
-
-describe('다중 챕터 세션과 수동 체크', () => {
-  it('어떤 챕터든 시작할 수 있고 해당 챕터를 활성 세션으로 저장한다', () => {
-    const now = new Date('2026-08-28T10:00:00.000Z');
-    const state = startChapter(createDefaultLearningState(), 'cpp', now);
-    assert.equal(state.activeChapterId, 'cpp');
-    assert.equal(state.chapters.cpp.status, 'Learning');
-    assert.equal(state.chapters.cpp.startedAt, now.toISOString());
+    }, new Date('2026-09-01T10:00:00'));
+    assert.equal(state.version, LEARNING_VERSION);
+    assert.equal(state.chapters.cpp.objectiveProgress[chapter.objectives[0].id].review.dueDate, '2026-08-02');
+    assert.equal(getSnapshot(state, new Date('2026-09-01T10:00:00')).rating.objectiveRatings[0].multiplier, 0.5);
   });
 
-  it('동시에 두 챕터를 시작하지 못한다', () => {
-    const state = startChapter(createDefaultLearningState(), 'cpp');
-    assert.throws(() => startChapter(state, 'csharp'), /another_session_active/);
-  });
-
-  it('챕터별 목표 ID만 저장하고 다른 챕터 목표 ID는 거부한다', () => {
-    let state = startChapter(createDefaultLearningState(), 'cpp');
-    state = updateChecklist(state, 'cpp', {
-      checkedStageIds: ['discovery', 'discovery'],
-      checkedObjectiveIds: ['cpp-objective-1'],
-    });
-    assert.deepEqual(state.chapters.cpp.checkedStageIds, ['discovery']);
-    assert.throws(
-      () => updateChecklist(state, 'cpp', { checkedObjectiveIds: ['csharp-objective-1'] }),
-      /invalid_objective_id/
-    );
-  });
-
-  it('학습 취소 시 체크한 단계와 목표를 Progress로 보존하고 활성 세션만 종료한다', () => {
-    const startedAt = new Date('2026-08-29T01:00:00.000Z');
-    let state = startChapter(createDefaultLearningState(), 'memory-alignment', startedAt);
-    state = updateChecklist(state, 'memory-alignment', {
-      checkedStageIds: ['discovery', 'principle'],
-      checkedObjectiveIds: ['memory-alignment-objective-1'],
-    });
-
-    const canceled = cancelChapter(state, 'memory-alignment');
-    const chapter = canceled.chapters['memory-alignment'];
-    assert.equal(canceled.activeChapterId, null);
-    assert.equal(chapter.status, 'Progress');
-    assert.equal(chapter.startedAt, startedAt.toISOString());
-    assert.deepEqual(chapter.checkedStageIds, ['discovery', 'principle']);
-    assert.deepEqual(chapter.checkedObjectiveIds, ['memory-alignment-objective-1']);
-  });
-
-  it('체크하지 않은 학습을 취소하면 Ready로 돌아가고 시작 시각을 비운다', () => {
-    const state = startChapter(createDefaultLearningState(), 'cpp');
-    const canceled = cancelChapter(state, 'cpp');
-    assert.equal(canceled.activeChapterId, null);
-    assert.equal(canceled.chapters.cpp.status, 'Ready');
-    assert.equal(canceled.chapters.cpp.startedAt, null);
-    assert.throws(() => cancelChapter(canceled, 'cpp'), /chapter_not_learning/);
-  });
-});
-
-describe('완료와 복습 일정', () => {
-  it('체크가 하나라도 부족하면 완료를 거부한다', () => {
-    const state = startChapter(createDefaultLearningState(), 'game-math');
-    assert.throws(() => completeChapter(state, 'game-math'), /checklist_incomplete/);
-  });
-
-  it('아무 챕터나 완료하고 1/3/7/30일 복습을 등록한다', () => {
-    let state = startChapter(createDefaultLearningState(), 'game-math');
-    state = completeChecklist(state, 'game-math');
-    const completed = completeChapter(state, 'game-math', '  벡터 학습 요약  ', new Date(2026, 7, 28, 12));
-    const chapter = completed.chapters['game-math'];
-    assert.equal(chapter.status, 'Completed');
-    assert.equal(chapter.completionSource, 'learning_session');
-    assert.equal(chapter.sessionSummary, '벡터 학습 요약');
-    assert.deepEqual(chapter.reviewSchedules.map((review) => review.offsetDays), REVIEW_OFFSETS);
-    assert.deepEqual(chapter.reviewSchedules.map((review) => review.dueDate), [
-      '2026-08-29', '2026-08-31', '2026-09-04', '2026-09-27',
-    ]);
-    const snapshot = getSnapshot(completed, new Date(2026, 7, 29));
-    assert.equal(snapshot.reviews.due[0].chapterId, 'game-math');
-    assert.equal(snapshot.releasedProgress.completed, 1);
-  });
-});
-
-describe('이전 학습 적용', () => {
-  it('사용자가 승인한 일부 단계와 목표만 적용하고 세션을 이어간다', () => {
-    const assessment = assessmentFor('profiling');
-    const state = applyPriorLearningAssessment(
-      createDefaultLearningState(),
-      'profiling',
-      assessment,
-      { stageIds: ['discovery', 'principle'], objectiveIds: ['profiling-objective-1'], summary: '부분 학습' },
-      new Date('2026-08-28T10:00:00.000Z')
-    );
-    const chapter = state.chapters.profiling;
-    assert.equal(chapter.status, 'Learning');
-    assert.equal(state.activeChapterId, 'profiling');
-    assert.deepEqual(chapter.checkedStageIds, ['discovery', 'principle']);
-    assert.deepEqual(chapter.checkedObjectiveIds, ['profiling-objective-1']);
-    assert.equal(chapter.importHistory[0].adapterId, 'manual-handoff');
-    assert.equal(chapter.sessionSummary, '');
-  });
-
-  it('전체 범위 분석은 경험 수준만 저장하고 상태와 체크리스트를 바꾸지 않는다', () => {
-    const state = applyCurriculumCoverage(
-      createDefaultLearningState(),
-      {
-        adapterId: 'manual-handoff',
-        chapterAssessments: [{
-          chapterId: 'cpp', level: 'applied', confidence: 0.87,
-          evidence: 'RAII를 프로젝트에 적용함', summary: '수명 관리 경험',
-        }],
-      },
-      ['cpp'],
-      new Date('2026-08-28T10:00:00.000Z')
-    );
-    assert.equal(state.chapters.cpp.status, 'Ready');
-    assert.deepEqual(state.chapters.cpp.checkedStageIds, []);
-    assert.equal(state.chapters.cpp.priorCoverage.level, 'applied');
-    assert.equal(state.chapters.cpp.priorCoverage.confidence, 0.87);
-    assert.equal(state.chapters.cpp.priorCoverage.assessedAt, '2026-08-28T10:00:00.000Z');
-  });
-
-  it('전체 상세 판정의 부분 진행도를 여러 챕터에 Progress로 함께 저장한다', () => {
-    const batch = {
-      chapterAssessments: [assessmentFor('cpp'), assessmentFor('csharp')],
-    };
+  it('여러 챕터의 가져온 단계와 목표를 독립적으로 적용하고 동일 RP를 준다', () => {
+    const cpp = getChapter('cpp');
+    const csharp = getChapter('csharp');
     const state = applyCurriculumDetailAssessments(
       createDefaultLearningState(),
-      batch,
+      { chapterAssessments: [makeAssessment('cpp'), makeAssessment('csharp')] },
       [
-        { chapterId: 'cpp', stageIds: ['discovery'], objectiveIds: ['cpp-objective-1'], summary: 'C++ 부분' },
-        { chapterId: 'csharp', stageIds: ['discovery', 'principle'], objectiveIds: ['csharp-objective-1'], summary: 'C# 부분' },
-      ]
+        { chapterId: 'cpp', stageIds: ['discovery'], objectiveIds: [cpp.objectives[0].id], summary: '' },
+        { chapterId: 'csharp', stageIds: ['discovery', 'principle'], objectiveIds: [csharp.objectives[0].id], summary: '' },
+      ],
+      new Date('2026-09-01T10:00:00')
     );
-    assert.equal(state.activeChapterId, null);
     assert.equal(state.chapters.cpp.status, 'Progress');
     assert.equal(state.chapters.csharp.status, 'Progress');
-    assert.deepEqual(state.chapters.cpp.checkedObjectiveIds, ['cpp-objective-1']);
-    assert.deepEqual(normalizeLearningState(state).chapters.csharp.checkedStageIds, ['discovery', 'principle']);
-  });
-
-  it('전체 상세 판정에서 모두 충족한 챕터만 완료하고 기존 활성 세션은 유지한다', () => {
-    const portfolio = getChapter('portfolio');
-    let current = startChapter(createDefaultLearningState(), 'cpp');
-    current = applyCurriculumDetailAssessments(
-      current,
-      { chapterAssessments: [assessmentFor('portfolio')] },
-      [{
-        chapterId: 'portfolio',
-        stageIds: portfolio.stages.map((stage) => stage.id),
-        objectiveIds: portfolio.objectives.map((objective) => objective.id),
-        summary: '포트폴리오 전체 경험',
-      }],
-      new Date(2026, 7, 28)
-    );
-    assert.equal(current.activeChapterId, 'cpp');
-    assert.equal(current.chapters.cpp.status, 'Learning');
-    assert.equal(current.chapters.portfolio.status, 'Completed');
-    assert.equal(current.chapters.portfolio.completionSource, 'curriculum_prior_learning_import');
-    assert.equal(current.chapters.portfolio.reviewSchedules.length, 4);
-  });
-
-  it('모든 항목을 승인하면 이전 학습으로 완료하고 복습을 등록한다', () => {
-    const chapterDefinition = getChapter('portfolio');
-    const assessment = assessmentFor('portfolio');
-    const state = applyPriorLearningAssessment(
-      createDefaultLearningState(),
-      'portfolio',
-      assessment,
-      {
-        stageIds: chapterDefinition.stages.map((stage) => stage.id),
-        objectiveIds: chapterDefinition.objectives.map((objective) => objective.id),
-        summary: '',
-      },
-      new Date(2026, 7, 28)
-    );
-    const chapter = state.chapters.portfolio;
-    assert.equal(chapter.status, 'Completed');
-    assert.equal(chapter.completionSource, 'prior_learning_import');
-    assert.equal(chapter.sessionSummary, 'Portfolio 이전 학습 요약');
-    assert.equal(chapter.reviewSchedules.length, 4);
-  });
-
-  it('선택 항목이 없거나 다른 활성 세션이 있으면 적용을 거부한다', () => {
-    const assessment = assessmentFor('csharp');
-    assert.throws(
-      () => applyPriorLearningAssessment(createDefaultLearningState(), 'csharp', assessment, { stageIds: [], objectiveIds: [] }),
-      /nothing_selected/
-    );
-    const state = startChapter(createDefaultLearningState(), 'cpp');
-    assert.throws(
-      () => applyPriorLearningAssessment(state, 'csharp', assessment, { stageIds: ['discovery'], objectiveIds: [] }),
-      /another_session_active/
-    );
+    assert.equal(calculateRating(state).achievedObjectives, 2);
   });
 });
 
-describe('외부 AI 학습 프롬프트', () => {
-  it('공급자 이름이나 API key 없이 챕터별 학습 규칙을 만든다', () => {
-    const prompt = buildLearningPrompt('inventory');
-    assert.match(prompt, /아이템 정의와 인벤토리 인스턴스/);
-    assert.match(prompt, /개념 발견 → 원리 이해 → 코드·사례 추론/);
-    assert.match(prompt, /Markdown 요약/);
-    assert.doesNotMatch(prompt, /ChatGPT|Claude|API key/i);
+describe('목표별 복습과 레이팅 복구', () => {
+  it('1·3·7·30일을 직전 정답일 기준으로 예약한다', () => {
+    const chapter = getChapter('physics');
+    const objectiveId = chapter.objectives[0].id;
+    let state = startAndCompleteStage(createDefaultLearningState(), chapter.id, 0, [objectiveId], new Date('2026-09-01T10:00:00'));
+    let review = state.chapters[chapter.id].objectiveProgress[objectiveId].review;
+    assert.equal(review.dueDate, '2026-09-02');
+
+    state = gradeObjectiveReview(state, chapter.id, objectiveId, 'correct', new Date('2026-09-02T12:00:00'));
+    review = state.chapters[chapter.id].objectiveProgress[objectiveId].review;
+    assert.equal(review.dueDate, '2026-09-05');
+    state = gradeObjectiveReview(state, chapter.id, objectiveId, 'correct', new Date('2026-09-05T12:00:00'));
+    assert.equal(state.chapters[chapter.id].objectiveProgress[objectiveId].review.dueDate, '2026-09-12');
+    state = gradeObjectiveReview(state, chapter.id, objectiveId, 'correct', new Date('2026-09-12T12:00:00'));
+    assert.equal(state.chapters[chapter.id].objectiveProgress[objectiveId].review.dueDate, '2026-10-12');
+    state = gradeObjectiveReview(state, chapter.id, objectiveId, 'correct', new Date('2026-10-12T12:00:00'));
+    assert.equal(state.chapters[chapter.id].objectiveProgress[objectiveId].review.phaseIndex, 4);
   });
 
-  it('정의되지 않은 챕터는 거부한다', () => {
-    assert.throws(() => buildLearningPrompt('not-a-chapter'), /chapter_unavailable/);
+  it('연체·부분정답·오답을 감점하고 즉시 정답 재복습으로 복구한다', () => {
+    const chapter = getChapter('physics');
+    const objective = chapter.objectives[0];
+    let state = startAndCompleteStage(createDefaultLearningState(), chapter.id, 0, [objective.id], new Date('2026-09-01T10:00:00'));
+    const baseRp = getSnapshot(state, new Date('2026-09-01T10:00:00')).balance.objectiveRp[objective.difficulty];
+    assert.equal(calculateRating(state, new Date('2026-09-03T10:00:00')).effectiveRp, baseRp * 0.5);
+
+    state = gradeObjectiveReview(state, chapter.id, objective.id, 'partial', new Date('2026-09-03T10:00:00'));
+    assert.equal(calculateRating(state, new Date('2026-09-03T10:00:00')).effectiveRp, baseRp * 0.75);
+    state = gradeObjectiveReview(state, chapter.id, objective.id, 'correct', new Date('2026-09-03T11:00:00'));
+    assert.equal(calculateRating(state, new Date('2026-09-03T11:00:00')).effectiveRp, baseRp);
+  });
+
+  it('복습 프롬프트는 목표 하나를 판정 계약으로 평가한다', () => {
+    const prompt = buildReviewPrompt('physics', 'physics-objective-1', '7일 복습', true);
+    assert.match(prompt, /physics-objective-1/);
+    assert.match(prompt, /즉시 재도전/);
+    assert.match(prompt, /learning-review-assessment\/v1/);
+  });
+});
+
+describe('주간 기습 질문과 티어', () => {
+  function surpriseReadyState(count) {
+    let state = createDefaultLearningState();
+    const objectives = CHAPTERS.flatMap((chapter) => chapter.objectives.map((objective) => ({ chapter, objective }))).slice(0, count);
+    objectives.forEach(({ chapter, objective }) => {
+      state = completeObjectiveSession(state, chapter.id, objective.id, '근거', new Date('2026-08-01T10:00:00')).state;
+      const review = state.chapters[chapter.id].objectiveProgress[objective.id].review;
+      review.phaseIndex = 4;
+      review.dueDate = null;
+    });
+    return state;
+  }
+
+  it('주당 7개를 배정하고 한 순환이 끝나기 전 남은 목표를 먼저 고른다', () => {
+    let snapshot = getSnapshot(surpriseReadyState(8), new Date('2026-09-07T10:00:00'));
+    const first = new Set(snapshot.reviews.surprise.assignments.map((item) => item.objectiveId));
+    assert.equal(first.size, 7);
+    snapshot = getSnapshot(snapshot.state, new Date('2026-09-14T10:00:00'));
+    const second = new Set(snapshot.reviews.surprise.assignments.map((item) => item.objectiveId));
+    assert.equal(second.size, 7);
+    assert.ok([...second].some((id) => !first.has(id)));
+  });
+
+  it('앱을 열지 않은 주의 미제출 목표를 50%로 낮추고 복구 목록에 노출한다', () => {
+    let snapshot = getSnapshot(surpriseReadyState(1), new Date('2026-09-07T10:00:00'));
+    snapshot = getSnapshot(snapshot.state, new Date('2026-09-14T10:00:00'));
+    assert.ok(snapshot.rating.penaltyRp > 0);
+    assert.equal(snapshot.reviews.surprise.assignments.length, 1);
+    const assignment = snapshot.reviews.surprise.assignments[0];
+    const restored = gradeObjectiveReview(snapshot.state, assignment.chapterId, assignment.objectiveId, 'correct', new Date('2026-09-14T11:00:00'), 'surprise');
+    assert.equal(calculateRating(restored, new Date('2026-09-14T11:00:00')).penaltyRp, 0);
+  });
+
+  it('대상 목표가 7개보다 적으면 중복 없이 배정하고 부분정답을 즉시 재도전할 수 있다', () => {
+    let snapshot = getSnapshot(surpriseReadyState(3), new Date('2026-09-07T10:00:00'));
+    assert.equal(snapshot.reviews.surprise.assignments.length, 3);
+    assert.equal(new Set(snapshot.reviews.surprise.assignments.map((item) => item.objectiveId)).size, 3);
+
+    const assignment = snapshot.reviews.surprise.assignments[0];
+    let state = gradeObjectiveReview(snapshot.state, assignment.chapterId, assignment.objectiveId, 'partial', new Date('2026-09-07T11:00:00'), 'surprise');
+    snapshot = getSnapshot(state, new Date('2026-09-07T11:00:00'));
+    assert.equal(snapshot.reviews.surprise.assignments.find((item) => item.objectiveId === assignment.objectiveId).multiplier, 0.75);
+
+    state = gradeObjectiveReview(snapshot.state, assignment.chapterId, assignment.objectiveId, 'correct', new Date('2026-09-07T12:00:00'), 'surprise');
+    assert.equal(getSnapshot(state, new Date('2026-09-07T12:00:00')).reviews.surprise.assignments.find((item) => item.objectiveId === assignment.objectiveId).multiplier, 1);
+  });
+
+  it('모든 목표 달성과 100% 유효 RP에서만 챌린저가 된다', () => {
+    let state = surpriseReadyState(200);
+    let rating = calculateRating(state, new Date('2026-09-01T10:00:00'));
+    assert.equal(rating.tier.key, 'challenger');
+    const first = CHAPTERS[0].objectives[0];
+    state.chapters[CHAPTERS[0].id].objectiveProgress[first.id].review.multiplier = 0.5;
+    rating = calculateRating(state, new Date('2026-09-01T10:00:00'));
+    assert.equal(rating.tier.key, 'master');
+    assert.equal(rating.tier.division, null);
   });
 });

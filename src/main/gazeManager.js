@@ -3,6 +3,8 @@
 const path = require('path');
 const { BrowserWindow, ipcMain } = require('electron');
 
+const GAZE_BREAK_DELAY_MS = 5000;
+
 // gaze 상태를 BREAK 신호로 변환하는 순수 함수 — 단독 테스트 가능
 // 카메라/스트림이 실제 연결되지 않았으면(connected===false) 강제하지 않고 false 반환
 //   → main이 화이트리스트(크롬 확장)만으로 판정하도록 폴백한다.
@@ -11,6 +13,33 @@ const { BrowserWindow, ipcMain } = require('electron');
 function shouldForceBreak({ facePresent, gazeOnScreen, connected }) {
   if (connected === false) return false;
   return !facePresent || !gazeOnScreen;
+}
+
+// 얼굴 미감지/시선 이탈이 연속으로 유지될 때만 BREAK를 허용한다.
+// 정상 응시 또는 카메라 연결 끊김(화이트리스트 폴백)이 오면 누적을 즉시 초기화한다.
+function createGazeBreakGate({ delayMs = GAZE_BREAK_DELAY_MS, now = () => Date.now() } = {}) {
+  let awaySince = null;
+
+  return {
+    update(gazeState) {
+      if (!shouldForceBreak(gazeState)) {
+        awaySince = null;
+        return false;
+      }
+
+      const currentTime = now();
+      if (awaySince === null) {
+        awaySince = currentTime;
+        return false;
+      }
+
+      return currentTime - awaySince >= delayMs;
+    },
+
+    reset() {
+      awaySince = null;
+    },
+  };
 }
 
 // 스트림 URL 유효성 검사 — 순수 함수, 단독 테스트 가능
@@ -38,6 +67,7 @@ let gazeWin = null;
 let onGazeUpdate = null; // (shouldBreak: boolean) => void
 let pollInterval = null;
 let allowDestroy = false; // 사용자가 X로 닫으면 파괴 대신 숨김(인식 지속), 진짜 종료 때만 true
+const gazeBreakGate = createGazeBreakGate();
 
 // BrowserWindow에서 웹캠/스트림 접근 + gaze 판정 결과를 IPC로 수신.
 // 창은 미리보기로 보이지만, 닫아도(숨겨도) 인식은 계속된다.
@@ -50,6 +80,7 @@ function startGaze({ cameraDeviceId, cameraSource, cameraStreamUrl, onUpdate }) 
   }
 
   onGazeUpdate = onUpdate;
+  gazeBreakGate.reset();
 
   // 소스 모드/URL 결정 (stream 무효 시 webcam 폴백)
   const source = pickCameraSource({ cameraSource, cameraStreamUrl, cameraDeviceId });
@@ -96,7 +127,7 @@ function startGaze({ cameraDeviceId, cameraSource, cameraStreamUrl, onUpdate }) 
 
   // 렌더러로부터 1초마다 gaze 상태 수신
   ipcMain.on('gaze:update', (_event, { facePresent, gazeOnScreen, connected }) => {
-    const forceBreak = shouldForceBreak({ facePresent, gazeOnScreen, connected });
+    const forceBreak = gazeBreakGate.update({ facePresent, gazeOnScreen, connected });
     if (typeof onGazeUpdate === 'function') {
       // 두 번째 인자로 카메라 실제 연결 여부도 전달 (대시보드 웹캠 상태 표시용)
       onGazeUpdate(forceBreak, connected === true);
@@ -113,6 +144,7 @@ function stopGaze() {
     allowDestroy = false;
   }
   onGazeUpdate = null;
+  gazeBreakGate.reset();
 }
 
 // 숨겨둔 미리보기 창을 다시 표시 (인식은 계속 돌던 중). 창이 있으면 true.
@@ -137,6 +169,8 @@ module.exports = {
   hasGazeWindow,
   // 순수 로직 — 테스트 노출
   _shouldForceBreak: shouldForceBreak,
+  _createGazeBreakGate: createGazeBreakGate,
+  _GAZE_BREAK_DELAY_MS: GAZE_BREAK_DELAY_MS,
   _isValidStreamUrl: isValidStreamUrl,
   _pickCameraSource: pickCameraSource,
 };

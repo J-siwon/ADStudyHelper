@@ -74,6 +74,18 @@ const LEARNING_CHAT_URLS = Object.freeze({
   claude: 'https://claude.ai/',
 });
 
+function loadLearningBalanceFile() {
+  const balancePath = path.join(app.getPath('userData'), 'learning-rating.json');
+  try {
+    if (!fs.existsSync(balancePath)) return learning.getLearningBalance();
+    const parsed = JSON.parse(fs.readFileSync(balancePath, 'utf8'));
+    return learning.setLearningBalance(parsed);
+  } catch (error) {
+    console.warn(`[learning] 밸런스 설정을 적용하지 못해 기본값을 사용합니다: ${error.message}`);
+    return learning.setLearningBalance(null);
+  }
+}
+
 function getLearningChatProvider() {
   const provider = store.getSettings().learningChatProvider;
   return Object.prototype.hasOwnProperty.call(LEARNING_CHAT_URLS, provider) ? provider : 'chatgpt';
@@ -415,8 +427,10 @@ ipcMain.handle('settings:set', async (_event, partial) => {
 });
 
 function getLearningSnapshot(state = store.getLearningState()) {
+  const snapshot = learning.getSnapshot(state);
+  store.setLearningState(snapshot.state);
   return {
-    ...learning.getSnapshot(state),
+    ...snapshot,
     chatProvider: getLearningChatProvider(),
     assessmentCapability: learningAssessment.getAssessmentCapability(),
   };
@@ -426,9 +440,10 @@ function getLearningSnapshot(state = store.getLearningState()) {
 ipcMain.handle('learning:getSnapshot', async () => getLearningSnapshot());
 
 ipcMain.handle('learning:startChapter', async (_event, chapterId) => {
-  const prompt = learning.buildLearningPrompt(chapterId);
-  clipboard.writeText(prompt);
   const next = learning.startChapter(store.getLearningState(), chapterId);
+  const chapter = learning.getSnapshot(next).chapterCatalog.find((item) => item.id === chapterId);
+  const stage = chapter.stages.find((item) => !next.chapters[chapterId].checkedStageIds.includes(item.id));
+  clipboard.writeText(learning.buildLearningPrompt(chapterId, stage.id));
   store.setLearningState(next);
   const opened = await openLearningChat();
   return {
@@ -438,27 +453,78 @@ ipcMain.handle('learning:startChapter', async (_event, chapterId) => {
   };
 });
 
-ipcMain.handle('learning:updateChecklist', async (_event, chapterId, patch) => {
-  const next = learning.updateChecklist(store.getLearningState(), chapterId, patch);
-  store.setLearningState(next);
-  return getLearningSnapshot(next);
-});
-
 ipcMain.handle('learning:cancelChapter', async (_event, chapterId) => {
   const next = learning.cancelChapter(store.getLearningState(), chapterId);
   store.setLearningState(next);
   return getLearningSnapshot(next);
 });
 
-ipcMain.handle('learning:copyPrompt', async (_event, chapterId) => {
-  clipboard.writeText(learning.buildLearningPrompt(chapterId));
+ipcMain.handle('learning:copyPrompt', async (_event, chapterId, stageId) => {
+  clipboard.writeText(learning.buildLearningPrompt(chapterId, stageId));
   return { ok: true };
 });
 
 ipcMain.handle('learning:openChat', async () => openLearningChat());
 
-ipcMain.handle('learning:completeChapter', async (_event, chapterId, summary) => {
-  const next = learning.completeChapter(store.getLearningState(), chapterId, summary);
+ipcMain.handle('learning:previewStageResult', async (_event, chapterId, stageId, rawResponse) => (
+  learningAssessment.parseStageResult(chapterId, stageId, rawResponse)
+));
+
+ipcMain.handle('learning:completeStage', async (_event, chapterId, stageId, objectiveIds, evidenceById) => {
+  const before = getLearningSnapshot();
+  const result = learning.completeStage(store.getLearningState(), chapterId, stageId, objectiveIds, evidenceById);
+  store.setLearningState(result.state);
+  const after = getLearningSnapshot(result.state);
+  return {
+    ...after,
+    reward: {
+      stageId,
+      objectiveIds: result.newlyAchievedObjectiveIds,
+      rp: after.rating.earnedRp - before.rating.earnedRp,
+      previousTier: before.rating.tier,
+      tier: after.rating.tier,
+    },
+  };
+});
+
+ipcMain.handle('learning:startObjectiveSession', async (_event, chapterId, objectiveId) => {
+  clipboard.writeText(learning.buildObjectiveFocusPrompt(chapterId, objectiveId));
+  const opened = await openLearningChat();
+  return { ok: true, ...opened, promptCopied: true };
+});
+
+ipcMain.handle('learning:previewObjectiveResult', async (_event, chapterId, objectiveId, rawResponse) => (
+  learningAssessment.parseObjectiveResult(chapterId, objectiveId, rawResponse)
+));
+
+ipcMain.handle('learning:completeObjectiveSession', async (_event, chapterId, objectiveId, evidence) => {
+  const before = getLearningSnapshot();
+  const result = learning.completeObjectiveSession(store.getLearningState(), chapterId, objectiveId, evidence);
+  store.setLearningState(result.state);
+  const after = getLearningSnapshot(result.state);
+  return {
+    ...after,
+    reward: {
+      objectiveIds: result.newlyAchievedObjectiveIds,
+      rp: after.rating.earnedRp - before.rating.earnedRp,
+      previousTier: before.rating.tier,
+      tier: after.rating.tier,
+    },
+  };
+});
+
+ipcMain.handle('learning:startReview', async (_event, review) => {
+  clipboard.writeText(learning.buildReviewPrompt(review.chapterId, review.objectiveId, review.phaseLabel, review.retry === true));
+  const opened = await openLearningChat();
+  return { ok: true, ...opened, promptCopied: true };
+});
+
+ipcMain.handle('learning:previewReviewResult', async (_event, chapterId, objectiveId, rawResponse) => (
+  learningAssessment.parseReviewResult(chapterId, objectiveId, rawResponse)
+));
+
+ipcMain.handle('learning:completeReview', async (_event, chapterId, objectiveId, grade, kind) => {
+  const next = learning.gradeObjectiveReview(store.getLearningState(), chapterId, objectiveId, grade, new Date(), kind);
   store.setLearningState(next);
   return getLearningSnapshot(next);
 });
@@ -592,6 +658,7 @@ ipcMain.handle('phone:setup', async () => ({
 }));
 
 app.whenReady().then(() => {
+  loadLearningBalanceFile();
   registerMpProtocol();   // MediaPipe 에셋 서빙
   createWindow();
   createTray();
