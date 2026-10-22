@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, powerMonitor, protocol, clipboard, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, powerMonitor, protocol, clipboard, shell, safeStorage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -52,6 +52,8 @@ const notifier         = require('./notifier');
 const { createPhoneFocusManager, normalizePhoneConfig } = require('./phoneFocusManager');
 const learning = require('./learning');
 const learningAssessment = require('./learning-assessment');
+const { GoogleBackup } = require('./google-backup');
+let googleBackup = null;
 const {
   startControlServer,
   stopControlServer,
@@ -271,6 +273,7 @@ function startFocusState() {
 
   // 1초마다 tick → WORK면 누적, 렌더러로 전송
   focusState.on('tick', ({ state, breakSeconds }) => {
+    store.ensureStudyDay();
     if (state === 'WORK') {
       store.addWorkSeconds(1);
     }
@@ -623,6 +626,35 @@ ipcMain.handle('learning:setProvider', async (_event, provider) => {
   return { ok: true, provider };
 });
 
+// Tokens and OAuth credentials remain in main; only study data crosses this boundary.
+function studyHandler(channel, handler) {
+  ipcMain.handle(channel, async (event, ...args) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('unauthorized_study_request');
+    return handler(...args);
+  });
+}
+
+studyHandler('study:getMonth', (month) => store.getStudyMonth(month));
+studyHandler('study:backupStatus', () => googleBackup.status());
+studyHandler('study:configureGoogle', async () => {
+  if (googleBackup.busy || googleBackup.status().connected) throw new Error('disconnect_before_configure');
+  const result = await dialog.showOpenDialog(mainWindow, { title: 'Google 데스크톱 로그인 설정 파일 선택',
+    filters: [{ name: 'Google OAuth JSON', extensions: ['json'] }], properties: ['openFile'] });
+  if (result.canceled) return { ...googleBackup.status(), cancelled: true };
+  const size = (await fs.promises.stat(result.filePaths[0])).size;
+  if (size > 65536) throw new Error('invalid_google_client');
+  let config;
+  try { config = JSON.parse(await fs.promises.readFile(result.filePaths[0], 'utf8')); }
+  catch { throw new Error('invalid_google_client'); }
+  return googleBackup.configure(config);
+});
+studyHandler('study:connectGoogle', () => googleBackup.connect());
+studyHandler('study:disconnectGoogle', () => googleBackup.disconnect());
+studyHandler('study:backup', (token) => googleBackup.backup(token));
+studyHandler('study:previewRestore', () => googleBackup.previewRestore());
+studyHandler('study:confirmRestore', (token) => googleBackup.confirmRestore(token));
+studyHandler('study:cancelRestore', () => { googleBackup.cancelRestore(); return { ok: true }; });
+
 // 도움말 창 열기
 ipcMain.handle('help:open', async () => {
   createHelpWindow();
@@ -659,6 +691,9 @@ ipcMain.handle('phone:setup', async () => ({
 
 app.whenReady().then(() => {
   loadLearningBalanceFile();
+  getLearningSnapshot();
+  googleBackup = new GoogleBackup({ store, safeStorage, openExternal: (url) => shell.openExternal(url) });
+  googleBackup.start();
   registerMpProtocol();   // MediaPipe 에셋 서빙
   createWindow();
   createTray();
@@ -704,3 +739,5 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+app.on('before-quit', () => { googleBackup?.stop(); });

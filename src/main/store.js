@@ -2,6 +2,9 @@
 
 const Store = require('electron-store');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const calendar = require('./study-calendar');
 const { createDefaultLearningState, normalizeLearningState } = require('./learning');
 
 // 기본 시드 화이트리스트
@@ -61,9 +64,11 @@ module.exports = {
 
   // 오늘 날짜 키에 n초 누적
   addWorkSeconds(n) {
+    this.ensureStudyDay();
     const key = `workSeconds.${todayKey()}`;
     const current = store.get(key, 0);
     store.set(key, current + n);
+    store.set('studyRevision', crypto.randomUUID());
   },
 
   // 오늘 누적 작업초 반환 (날짜 바뀌면 자동으로 0)
@@ -89,10 +94,59 @@ module.exports = {
   },
 
   setLearningState(state) {
+    const before = this.getLearningState();
     const normalized = normalizeLearningState(state);
-    store.set('learning', normalized);
+    if (JSON.stringify(before) !== JSON.stringify(normalized)) {
+      store.set('learning', normalized);
+      store.set('studyRevision', crypto.randomUUID());
+    }
+    this.recordStudyDay(normalized, calendar.learningEvents(before, normalized));
     return normalized;
   },
+
+  recordStudyDay(state, events = [], now = new Date()) {
+    const days = store.get('studyDays', {});
+    const next = calendar.updateDay(days, state, events, now);
+    if (JSON.stringify(days) !== JSON.stringify(next)) {
+      store.set('studyDays', next);
+      store.set('studyRevision', crypto.randomUUID());
+    }
+  },
+
+  ensureStudyDay(now = new Date()) {
+    if (!store.get(`studyDays.${calendar.dateKey(now)}`)) this.recordStudyDay(this.getLearningState(), [], now);
+  },
+
+  getStudyMonth(month) {
+    this.ensureStudyDay();
+    return calendar.monthRecords(month, store.get('workSeconds', {}), store.get('studyDays', {}));
+  },
+
+  getStudyRevision() { return store.get('studyRevision', ''); },
+
+  exportStudyBackup(now = new Date()) {
+    this.ensureStudyDay(now);
+    return { schema: calendar.BACKUP_SCHEMA, createdAt: now.toISOString(),
+      workSeconds: store.get('workSeconds', {}), studyDays: store.get('studyDays', {}), learning: this.getLearningState() };
+  },
+
+  restoreStudyBackup(value) {
+    const backup = calendar.validateBackup(value);
+    const safetyPath = path.join(path.dirname(store.path), `study-before-restore-${Date.now()}-${crypto.randomUUID()}.json`);
+    fs.writeFileSync(safetyPath, JSON.stringify(this.exportStudyBackup(), null, 2), { encoding: 'utf8', flag: 'wx' });
+    // electron-store writes the replacement as one transaction; settings and secrets stay local.
+    store.store = { ...store.store, workSeconds: backup.workSeconds, studyDays: backup.studyDays,
+      learning: backup.learning, studyRevision: crypto.randomUUID() };
+    this.recordStudyDay(backup.learning);
+    return safetyPath;
+  },
+
+  getGoogleClient() { return store.get('googleClient', null); },
+  setGoogleClient(value) { store.set('googleClient', value); },
+  getGoogleTokens() { return store.get('googleTokens', ''); },
+  setGoogleTokens(value) { store.set('googleTokens', value); },
+  getGoogleBackupMeta() { return store.get('googleBackupMeta', {}); },
+  setGoogleBackupMeta(value) { store.set('googleBackupMeta', value); },
 
   // iPhone 앱이 로컬 API에 접속할 때 사용하는 설치별 비밀 토큰.
   getPhonePairingToken() {

@@ -1,6 +1,7 @@
 'use strict';
 
 import { initLearningApp } from './learning-app.js';
+import { initCalendarApp } from './calendar-app.js';
 
 // renderer.js — 대시보드 렌더러 스크립트
 // window.focusAPI 는 src/preload/index.js 가 contextBridge로 노출
@@ -394,6 +395,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadPhoneSetup();
 
   initLearningApp();
+  initCalendarApp();
 
   // NOTE (worker-1 연동): preload/index.js에 아래를 추가해야 함:
   //   getSettings: () => ipcRenderer.invoke('settings:get'),

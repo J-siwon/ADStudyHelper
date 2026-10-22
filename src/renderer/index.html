@@ -22,6 +22,7 @@
         <button class="nav-item active" data-view-target="home"><span>⌂</span> 홈</button>
         <button class="nav-item" data-view-target="curriculum"><span>◇</span> 커리큘럼</button>
         <button class="nav-item" data-view-target="focus"><span>◷</span> 집중 도구</button>
+        <button class="nav-item" data-view-target="calendar"><span>▦</span> 공부 캘린더</button>
       </nav>
 
       <div class="sidebar-spacer"></div>
@@ -37,6 +38,33 @@
     </aside>
 
     <main class="workspace">
+      <section class="app-view" data-view="calendar">
+        <header class="page-header"><div><p class="eyebrow">Study Calendar</p><h2>하루의 공부를 기록하세요</h2></div></header>
+        <div class="calendar-layout">
+          <article class="summary-card calendar-card">
+            <div class="calendar-toolbar"><button class="secondary-btn" id="calendarPrev" type="button" aria-label="이전 달">‹</button><h3 id="calendarMonth"></h3><button class="secondary-btn" id="calendarNext" type="button" aria-label="다음 달">›</button><button class="text-btn" id="calendarToday" type="button">오늘</button></div>
+            <div class="calendar-weekdays" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+            <div class="calendar-grid" id="calendarGrid" aria-label="날짜별 공부 기록"></div>
+            <p class="muted calendar-legend">공부 시간에 따라 색이 짙어집니다 · 1시간 / 2시간 / 4시간</p>
+          </article>
+          <article class="summary-card calendar-detail">
+            <p class="eyebrow">Daily Record</p><h3 id="calendarSelectedDate"></h3>
+            <dl><dt>집중 시간</dt><dd id="calendarWorkTime"></dd><dt>마지막 티어 · RP</dt><dd id="calendarTier"></dd><dt>완료 목표 비율</dt><dd id="calendarProgress"></dd></dl>
+            <h4>학습 내역</h4><ul id="calendarEvents"></ul><p class="muted" id="calendarEventsEmpty">이 날짜에 기록된 학습 내역이 없습니다.</p>
+            <p class="muted">티어와 진행도는 해당 날짜에 앱에서 마지막으로 기록한 값입니다. 과거 집중 시간은 유지되며, 새 기능 이전의 상세 이력은 기록 없음으로 표시됩니다.</p>
+          </article>
+        </div>
+        <article class="summary-card google-backup-card">
+          <div class="card-heading"><div><p class="eyebrow">Google Drive</p><h3>공부 기록 백업</h3></div><span id="googleAccount"></span></div>
+          <p class="muted">내 Google 계정에 공부 시간과 학습 상태를 저장합니다. 다른 PC에서는 복원을 선택하세요.</p>
+          <div class="calendar-actions"><button class="secondary-btn" id="googleConfigureBtn" type="button">로그인 설정 파일 선택</button><button class="primary-btn" id="googleConnectBtn" type="button">Google 계정 연결</button><button class="text-btn" id="googleDisconnectBtn" type="button">연결 해제</button><button class="secondary-btn" id="googleBackupBtn" type="button">지금 백업</button><button class="secondary-btn" id="googleRestoreBtn" type="button">백업 불러오기</button></div>
+          <p class="muted" id="googleBackupStatus"></p><p class="muted" id="googleRestoreStatus"></p>
+          <p class="calendar-error" id="googleBackupError" role="status"></p>
+          <div id="googleConflictActions" hidden><button class="secondary-btn" id="googleOverwriteBtn" type="button">현재 PC 기록으로 백업</button></div>
+        </article>
+        <p id="calendarNotice" class="action-status" role="status" aria-live="polite"></p>
+      </section>
+
       <section class="app-view active" data-view="home">
         <header class="page-header">
           <div><p class="eyebrow">오늘의 학습</p><h2>배운 것을 설명할 수 있을 때까지</h2></div>
@@ -402,6 +430,11 @@
       </div>
     </div>
   </div>
+
+  <dialog class="study-restore-dialog" id="studyRestoreDialog" aria-labelledby="studyRestoreTitle">
+    <h3 id="studyRestoreTitle">공부 기록 복원</h3><p id="restorePreviewText"></p>
+    <div class="calendar-actions"><button class="secondary-btn" id="studyRestoreCancel" type="button">취소</button><button class="primary-btn" id="studyRestoreConfirm" type="button">이 기록으로 복원</button></div>
+  </dialog>
 
   <script type="module" src="renderer.js"></script>
 </body>

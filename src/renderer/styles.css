@@ -770,3 +770,37 @@ body { overflow: hidden; }
   .curriculum-detail-body { grid-template-columns: 1fr; }
   .curriculum-detail-summary { grid-column: auto; }
 }
+
+/* Study calendar */
+.calendar-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 18px; }
+.calendar-toolbar, .calendar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.calendar-toolbar { margin-bottom: 20px; }
+.calendar-toolbar h3 { margin: 0; flex: 1; }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.calendar-weekdays { color: var(--text-dim); font-size: 12px; text-align: center; margin-bottom: 10px; }
+.calendar-day { min-height: 82px; padding: 9px 4px; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; }
+.calendar-day span { font-size: 11px; }
+.calendar-day small { font-size: 9px; color: var(--text-dim); }
+.calendar-day.study-1 { background: #262940; }
+.calendar-day.study-2 { background: #363a62; }
+.calendar-day.study-3 { background: #464c89; }
+.calendar-day.study-4 { background: #555dc0; }
+.calendar-day.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+.calendar-day.today strong { color: #b9bdff; text-decoration: underline; text-underline-offset: 4px; }
+.calendar-day:focus-visible { outline: 2px solid white; }
+.calendar-legend { margin-top: 18px; }
+.calendar-detail dt { color: var(--text-dim); font-size: 11px; margin-top: 18px; }
+.calendar-detail dd { margin: 6px 0 0; font-size: 14px; font-weight: 700; }
+.calendar-detail h4 { margin-top: 24px; }
+.calendar-detail ul { padding-left: 18px; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.calendar-detail > p:last-child { font-size: 11px; line-height: 1.7; margin-top: 22px; }
+.google-backup-card { margin-top: 18px; }
+.google-backup-card .card-heading { flex-wrap: wrap; gap: 10px; }
+.google-backup-card p { margin: 14px 0; }
+.google-backup-card button:disabled { opacity: .4; cursor: default; }
+.calendar-error { color: #ffbd91; font-size: 12px; line-height: 1.7; }
+.study-restore-dialog { width: min(540px, 90vw); padding: 26px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 14px; }
+.study-restore-dialog::backdrop { background: rgba(0, 0, 0, .7); }
+.study-restore-dialog p { white-space: pre-line; font-size: 13px; line-height: 1.8; margin: 20px 0; }
+@media (max-width: 1000px) { .calendar-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .calendar-day { min-height: 65px; } .calendar-day span { font-size: 9px; } .calendar-day small { display: none; } }

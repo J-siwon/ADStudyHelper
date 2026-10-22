@@ -14,6 +14,8 @@ ADHD 사용자를 위한 집중력 향상 데스크톱 앱 (Electron 기반).
 - 게임 개발 커리큘럼 40개 챕터·200개 목표를 단계별로 학습하고 진행 상태 저장
 - ChatGPT 또는 Claude와 수동으로 연동해 단계·목표·복습 결과를 사용자가 확인한 뒤 반영
 - 목표 난이도별 RP, 티어, 1·3·7·30일 복습과 주간 기습 질문 제공
+- 공부 캘린더에서 월별 집중 시간과 날짜별 티어·RP·목표 진행률·학습 내역 확인
+- 본인 Google 계정의 Drive 앱 전용 공간에 공부 기록 백업 및 미리보기 후 복원
 
 ## 설치 및 실행
 
@@ -53,6 +55,14 @@ npm start
 목표를 처음 달성하면 난이도에 따라 RP를 얻고, 이후 목표별 복습 결과가 유효 RP와 티어에 반영됩니다. 기본 복습 간격은 1일·3일·7일·30일이며, 장기 복습을 통과한 목표는 주간 기습 질문 대상이 됩니다. 세부 규칙과 조정 방법은 [`docs/learning-rating.md`](docs/learning-rating.md)를 참고하세요.
 
 개발 체크아웃에서는 `config/learning-rating.json`을 수정한 뒤 앱을 재시작합니다. 포터블 배포물에서는 EXE 옆의 `learning-rating.json`을 수정하고 `apply-learning-balance.bat`을 실행한 뒤 앱을 재시작합니다. 잘못된 설정은 적용하지 않고 내장 기본값으로 돌아갑니다.
+
+### 공부 캘린더와 Google 백업
+
+사이드바의 **공부 캘린더**에서 이전·다음 달로 이동하고 날짜를 선택하면 집중 시간, 그날 마지막으로 기록된 티어·RP·목표 진행률과 목표 완료·복습·학습 가져오기 내역을 확인할 수 있습니다. 날짜는 PC 현지 날짜를 사용합니다. 기존 집중 시간은 유지하며, 기능 추가 전의 티어와 상세 내역은 추정하지 않고 기록 없음으로 표시합니다.
+
+Google 백업은 선택 기능입니다. Google Cloud의 데스크톱 OAuth 설정 JSON을 준비한 뒤 **로그인 설정 파일 선택 → Google 계정 연결** 순서로 연결합니다. 연결 후 변경된 공부 기록을 5분 간격으로 확인해 자동 백업하며, **지금 백업**으로 직접 저장할 수도 있습니다. 설정 절차와 복원 방법은 [Google 백업 안내](docs/google-study-backup.md)를 참고하세요.
+
+**백업 불러오기**는 날짜 범위·공부량·학습 요약을 먼저 보여주며, 확인한 뒤 현재 공부 기록을 교체합니다. 교체 전 로컬 사본을 남기고, 다른 PC의 새 백업을 발견하면 자동 백업을 멈춰 복원 또는 현재 기록 백업을 선택하게 합니다. 여러 PC의 기록은 자동 병합하지 않습니다. 앱 설정과 로그인 토큰은 백업에 포함하지 않습니다.
 
 ### Codex 작업 상태 연동
 
@@ -100,6 +110,8 @@ npm run dist
 ```
 
 포터블 EXE와 함께 학습 밸런스 템플릿 `learning-rating.json` 및 적용 도구 `apply-learning-balance.bat`이 `dist/`에 복사됩니다.
+
+현재 변경에서는 기존 포터블 EXE를 저장소에서 삭제했습니다. 실행 파일이 필요하면 위 명령으로 로컬 빌드하세요.
 
 ### BREAK 임계값 단축 (테스트용)
 
@@ -198,9 +210,11 @@ ADStudyHelper/
 │   │   ├── learning-catalog.js # 40개 챕터·200개 목표 카탈로그
 │   │   ├── learning.js         # 단계·목표·RP·복습 상태
 │   │   ├── learning-balance.js # RP·티어·복습 밸런스 검증
-│   │   └── learning-assessment.js # 외부 AI 수동 판정 계약
+│   │   ├── learning-assessment.js # 외부 AI 수동 판정 계약
+│   │   ├── study-calendar.js   # 일별 요약·학습 이벤트·백업 검증
+│   │   └── google-backup.js    # Google 로그인·Drive 백업·복원
 │   ├── preload/
-│   │   ├── index.js            # 대시보드 preload (focusAPI)
+│   │   ├── index.js            # focusAPI·learningAPI·studyAPI
 │   │   ├── pet.js              # 펫 창 preload (petAPI)
 │   │   └── gaze.js             # 시선 추적 창 preload
 │   └── renderer/
@@ -212,24 +226,37 @@ ADStudyHelper/
 │       ├── gaze.html           # 시선 추적 창 HTML
 │       ├── gaze.js             # 시선 추적 렌더러
 │       ├── learning-app.js     # 학습 화면 상태와 상호작용
+│       ├── calendar-app.js     # 공부 캘린더·계정 연결·복원 확인
 │       └── styles.css          # 대시보드·학습 화면 스타일
 ├── config/
 │   └── learning-rating.json    # 개발용 학습 밸런스 설정
 ├── docs/
 │   ├── learning-assessment-adapters.md # 외부 AI 판정 계약
-│   └── learning-rating.md      # RP·티어·복습 규칙
+│   ├── learning-rating.md      # RP·티어·복습 규칙
+│   ├── google-study-backup.md  # Google 설정·백업·복원 사용법
+│   ├── work-log.md             # 변경 내용·작업 과정·검증 기록
+│   └── visual-changelog.html   # 화면·동작 변경 비교
 ├── test/
 │   ├── whitelist.test.js       # whitelist 단위 테스트
 │   ├── focusState.test.js      # FocusState 단위 테스트
 │   ├── away.test.js            # awayManager 단위 테스트
 │   ├── notifier.test.js        # notifier 단위 테스트
 │   ├── learning.test.js        # 학습 상태·RP·복습 테스트
-│   └── learningBalance.test.js # 학습 밸런스 검증 테스트
+│   ├── learningBalance.test.js # 학습 밸런스 검증 테스트
+│   ├── studyCalendar.test.js   # 일별 기록·백업 경계·복원 테스트
+│   └── googleBackup.test.js    # OAuth·업로드·충돌·복원 테스트
 ├── apply-learning-balance.bat  # 포터블 밸런스 적용 도구
 ├── CONTRACTS.md                # 모듈 인터페이스 계약
 ├── PHASE2-PLAN.md              # Phase 2 기능 사양
 └── package.json
 ```
+
+## 작업 기록과 인수인계
+
+- [작업 과정과 검증 기록](docs/work-log.md)
+- [화면·동작 변경 비교](docs/visual-changelog.html) — HTML 파일을 브라우저에서 열면 기존 애니메이션 데모도 볼 수 있습니다.
+- [현재 상태와 후속 확인 사항](HANDOFF.md)
+- [모듈 인터페이스 계약](CONTRACTS.md)
 
 ## 기술 스택
 

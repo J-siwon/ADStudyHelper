@@ -136,3 +136,16 @@ contextBridge.exposeInMainWorld('learningAPI', {
     return ipcRenderer.invoke('learning:setProvider', provider);
   },
 });
+
+// Study calendar and account backup; no tokens or credentials are exposed.
+contextBridge.exposeInMainWorld('studyAPI', {
+  getMonth: (month) => ipcRenderer.invoke('study:getMonth', month),
+  getBackupStatus: () => ipcRenderer.invoke('study:backupStatus'),
+  configureGoogle: () => ipcRenderer.invoke('study:configureGoogle'),
+  connectGoogle: () => ipcRenderer.invoke('study:connectGoogle'),
+  disconnectGoogle: () => ipcRenderer.invoke('study:disconnectGoogle'),
+  backup: (token) => ipcRenderer.invoke('study:backup', token),
+  previewRestore: () => ipcRenderer.invoke('study:previewRestore'),
+  confirmRestore: (token) => ipcRenderer.invoke('study:confirmRestore', token),
+  cancelRestore: () => ipcRenderer.invoke('study:cancelRestore'),
+});

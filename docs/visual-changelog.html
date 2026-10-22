@@ -134,8 +134,34 @@
 <body>
 <div class="wrap">
   <h1>ADStudyHelper — 변경 기록 (Before / After)</h1>
-  <p class="sub">2026-06-24 → 07-19 업데이트 동안 바뀐 주요 화면/동작을 비교합니다. 펫·설정 페이드는 <strong>실제로 움직입니다</strong> (브라우저에서 열어보세요).</p>
+  <p class="sub">최종 문서 갱신: 2026-10-23. 공부 캘린더·Google 백업 흐름과 기존 2026-06-24 → 07-19 화면 변경을 정리합니다. 펫·설정 페이드는 <strong>실제로 움직입니다</strong> (브라우저에서 열어보세요).</p>
   <div class="legend"><span class="tag before">BEFORE 구버전</span><span class="tag after">AFTER 현재</span></div>
+
+  <div class="block">
+    <h2>공부 캘린더와 Google Drive 백업</h2>
+    <p class="why">기존 집중 시간과 학습 상태를 날짜별로 확인하고 다른 PC에서 공부 기록을 복원할 수 있습니다. 아래는 기능 설명용 흐름이며 실제 앱 캡처나 Google 연동 검증 결과가 아닙니다.</p>
+    <div class="ba">
+      <div class="pane b">
+        <div class="cap">BEFORE · 오늘 집중 시간과 현재 학습 상태</div>
+        <div class="stagebox"><div class="mini">
+          <p>오늘 누적 집중 시간</p><p>현재 목표 진행률 · 티어 · RP</p>
+          <div class="msec">월별·날짜별 요약 화면과 Google 백업·복원 기능 없음</div>
+        </div></div>
+      </div>
+      <div class="pane a">
+        <div class="cap">AFTER · 날짜별 기록과 계정 백업</div>
+        <div class="stagebox"><div class="mini">
+          <p>공부 캘린더 → 월 이동 → 날짜 선택</p>
+          <div class="msec">집중 시간 · 그날의 티어/RP · 목표 진행률<br>완료 · 복습 · 학습 가져오기 내역</div>
+          <div class="msec">설정 JSON 선택 → Google 연결 → 자동/수동 백업</div>
+          <div class="msec">백업 불러오기 → 요약 확인 → 복원 확정 → 화면 갱신</div>
+        </div></div>
+      </div>
+    </div>
+    <p class="why">다른 PC의 새 백업 발견 → 자동 백업 중단 → 복원 또는 현재 PC 기록 백업 선택. 복원 전 로컬 사본을 남깁니다. 과거 티어·내역을 추정하거나 PC 간 기록을 자동 병합하지 않습니다.</p>
+    <p class="why">검증: 자동 테스트 211/211 및 모듈 로드 검사 통과. 실제 Electron 화면·Google 계정 연동·포터블 빌드는 이번 작업에서 검증하지 않았습니다.</p>
+    <p><a href="google-study-backup.md">계정 설정·백업 안내</a> · <a href="work-log.md">작업 과정과 검증 기록</a></p>
+  </div>
 
   <!-- 1. 캐릭터 -->
   <div class="block">
